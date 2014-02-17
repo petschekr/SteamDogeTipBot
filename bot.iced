@@ -190,6 +190,55 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					when "add"
 						message += "\n\tType: add, Amount: #{item.amount}, Status: #{item.status}"
 			bot.sendMessage chatterID, message
+		when "+withdraw"
+			await checkIfRegistered chatterID, defer(registered, user)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			unless registered
+				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
+
+			address = message.split(" ")[1]
+			unless address?
+				return bot.sendMessage chatterID, "Missing address. Notation for +withdraw is '+withdraw <ADDRESS> <AMOUNT|all> doge'."
+			amount = message.split(" ")[2]
+			unless amount?
+				return bot.sendMessage chatterID, "Missing amount. Notation for +withdraw is '+withdraw <ADDRESS> <AMOUNT|all> doge'."
+
+			if amount.toLowerCase() is "all"
+				amount = user.funds
+			else
+				amount = parseInt amount, 10
+				if isNaN(amount)
+					return bot.sendMessage chatterID, "Invalid DOGE to withdraw"
+				if amount > user.funds - 1
+					return bot.sendMessage chatterID, "You can't withdraw that many DOGE (remember that there is a 1 DOGE transaction fee from the network)"
+			amount -= 1 # 1 DOGE network transaction fee
+
+			payload = {amount, destination: address}
+			options =
+				"method": "POST"
+				"url": "https://moolah.ch/api/merchant/send"
+				"form":
+					"guid": moolah.guid
+					"api_key": moolah.api_key
+					"payload": payload
+			requester options, (error, response, body) ->
+				unless !error and response.statusCode is 200
+					console.error "#{Date.now().toString()} - #{error}, #{response}, #{body}"
+					return bot.sendMessage chatterID, "Moolah ran into an error processing your request"
+				try
+					body = JSON.parse body
+				catch e
+					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
+				if body.status is "failure"
+					# Something prevented Moolah from sending the money
+					console.error "#{Date.now().toString()} - Withdrawl error: #{body.reason}"
+					return bot.sendMessage chatterID, "Moolah couldn't withdraw your funds. Stated reason: '#{body.reason}'."
+				await Users_collection.update {id: chatterID}, {$inc: {funds: -(amount + 1)}}, {w:1}, defer(err)
+				if err
+					console.error err
+					return bot.sendMessage chatterID, "The database ran into an error"
+				bot.sendMessage chatterID, "#{body.amount} DOGE sent to #{body.destination} successfully"
 
 bot.on "friend", (steamID, Relationship) ->
 	if pendingInvites.indexOf(steamID) isnt -1
