@@ -14,7 +14,7 @@ await MongoClient.connect "mongodb://192.168.1.115:27017/dogebot", defer(err, db
 if err
 	console.error err
 	process.exit 1
-await db.collection "users", defer(err, collection)
+await db.collection "users", defer(err, Users_collection)
 if err
 	console.error err
 	process.exit 1
@@ -35,7 +35,14 @@ bot.on "loggedOn", ->
 	bot.sendMessage DogeTipGroupID, "dogetippingbot is back online"
 # Functions
 getNameFromID = (steamID) ->
-	bot.users[steamID].playerName
+	name = bot.users[steamID]?.playerName
+checkIfRegistered = (steamID, cb) ->
+	await Users_collection.findOne {id: steamID}, defer(err, user)
+	if err
+		console.error err
+		cb undefined
+	registered = if user then true else false
+	cb registered
 
 bot.on "chatMsg", (sourceID, message, type, chatterID) ->
 	if message is "Me"
@@ -47,9 +54,25 @@ bot.on "friendMsg", (chatterID, message, type) ->
 	switch message.split(" ")[0] # The command part
 		when "+register"
 			name = getNameFromID chatterID
-			bot.sendMessage chatterID, "Welcome #{name}"
-			bot.sendMessage chatterID, "Reply '+add <AMOUNT> doge' to add dogecoins to your account"
-			bot.sendMessage chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'"
+
+			await checkIfRegistered chatterID, defer(registered)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			if registered
+				return bot.sendMessage chatterID, "You've already registered"
+			else
+				userEntry =
+					id: chatterID
+					name: name
+					funds: 0
+					history: []
+				await Users_collection.insert userEntry, {w:1}, defer(err)
+				if err
+					console.error "DBError: #{err}"
+					return bot.sendMessage chatterID, "DBError: #{err}"
+				bot.sendMessage chatterID, "Welcome #{name}"
+				bot.sendMessage chatterID, "Reply '+add <AMOUNT> doge' to add dogecoins to your account"
+				bot.sendMessage chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'"
 		when "+add"
 			previousAdds = no
 			for payment in pendingPayments
