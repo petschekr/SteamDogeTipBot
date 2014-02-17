@@ -116,7 +116,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				await Users_collection.update {id: chatterID}, {$push:{history: fundTx}}, {w:1}, defer(err)
 				if err
 					console.error err
-					bot.sendMessage chatterID, "The database ran into an error" 
+					bot.sendMessage chatterID, "The database ran into an error"
 		when "+finishadd"
 			await checkIfRegistered chatterID, defer(registered, user)
 			if registered is undefined
@@ -234,7 +234,11 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					# Something prevented Moolah from sending the money
 					console.error "#{Date.now().toString()} - Withdrawl error: #{body.reason}"
 					return bot.sendMessage chatterID, "Moolah couldn't withdraw your funds. Stated reason: '#{body.reason}'."
-				await Users_collection.update {id: chatterID}, {$inc: {funds: -(amount + 1)}}, {w:1}, defer(err)
+				withdrawTx =
+					"type": "withdraw"
+					"amount": -amount
+					"status": "sent"
+				await Users_collection.update {id: chatterID}, {$inc: {funds: -(amount + 1), $push:{history: withdrawTx}}, {w:1}, defer(err)
 				if err
 					console.error err
 					return bot.sendMessage chatterID, "The database ran into an error"
@@ -279,13 +283,21 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			else
 				return bot.sendMessage chatterID, "'#{shibe}' hasn't registered yet with the bot. Have them join the group and +register."
 			# Move the funds
-			# Decrement funds
-			await Users_collection.update {id: chatterID}, {$inc: {funds: -amount}}, {w:1}, defer(err)
+			# Decrement funds (for tipper)
+			tip1Tx =
+				"type": "sent tip"
+				"amount": -amount
+				"status": "sent"
+			await Users_collection.update {id: chatterID}, {$inc: {funds: -amount}, $push:{history: tip1Tx}}, {w:1}, defer(err)
 			if err
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
-			# Increment funds
-			await Users_collection.update {id: shibeID}, {$inc: {funds: amount}}, {w:1}, defer(err)
+			# Increment funds (for tippee)
+			tip2Tx =
+				"type": "received tip"
+				"amount": amount
+				"status": "received"
+			await Users_collection.update {id: shibeID}, {$inc: {funds: amount}, $push:{history: tip2Tx}}, {w:1}, defer(err)
 			if err
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
