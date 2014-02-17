@@ -174,6 +174,21 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			balance = user.funds
 			bot.sendMessage chatterID, "You currently have #{balance} DOGE to tip with"
+		when "+history"
+			await checkIfRegistered chatterID, defer(registered, user)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			unless registered
+				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."			
+			history = user.history
+			history = history.splice history.length - 10, history.length # Last 10 transactions in the history
+			message = "#{user.name}, here are your last 10 transactions:\n"
+			message += "Current balance: #{user.funds}\n"
+			for item in history by -1 # Go backwards
+				switch item.type
+					when "add"
+						message += "\n\tType: add, Amount: #{item.amount}, Status: #{item.status}"
+			bot.sendMessage chatterID, message
 
 bot.on "friend", (steamID, Relationship) ->
 	if pendingInvites.indexOf(steamID) isnt -1
