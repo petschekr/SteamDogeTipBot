@@ -156,7 +156,8 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					# Cancel the request in the DB
 					for transaction, transactionIndex in user.history
 						if transaction.status is "pending"
-							user.history.splice transactionIndex, 1
+							transaction.status = "cancelled"
+							user.history[transactionIndex] = transaction
 					await Users_collection.update {id: chatterID}, {$set:{history: user.history}}, {w:1}, defer(err)
 					if err
 						console.error err
