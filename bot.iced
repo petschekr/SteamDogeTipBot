@@ -34,7 +34,7 @@ bot.on "loggedOn", ->
 	bot.sendMessage DogeTipGroupID, "dogetippingbot is back online"
 # Functions
 getNameFromID = (steamID) ->
-	name = bot.users[steamID]?.playerName
+	bot.users[steamID]?.playerName
 checkIfRegistered = (steamID, cb) ->
 	await Users_collection.findOne {id: steamID}, defer(err, user)
 	if err
@@ -84,7 +84,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					if transaction.status is "pending" then return bot.sendMessage chatterID, "You already have an +add request pending"
 
 			amount = message.split(" ")[1]
-			amount = parseInt amount, 10
+			amount = parseFloat amount, 10
 			if isNaN(amount)
 				return bot.sendMessage chatterID, "Invalid number of doge specified"
 			options =
@@ -207,7 +207,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			if amount.toLowerCase() is "all"
 				amount = user.funds
 			else
-				amount = parseInt amount, 10
+				amount = parseFloat amount, 10
 				if isNaN(amount)
 					return bot.sendMessage chatterID, "Invalid DOGE to withdraw"
 				if amount > user.funds - 1
@@ -239,6 +239,57 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					console.error err
 					return bot.sendMessage chatterID, "The database ran into an error"
 				bot.sendMessage chatterID, "#{body.amount} DOGE sent to #{body.destination} successfully"
+		when "+tip"
+			# Tip a Steam-using shibe
+			await checkIfRegistered chatterID, defer(registered, user)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			unless registered
+				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
+
+			tipInfo = message.split(" ")
+			tipInfo.shift() # Remove first element (the "+tip" command)
+			tipInfo = tipInfo.join(" ")
+			tipInfo = (/([\w\s]+?) ([\d\.]*) doge/i).exec tipInfo # Handle names with spaces
+			if tipInfo?
+				shibe = tipInfo[1]
+				amount = tipInfo[2]
+			else
+				return bot.sendMessage chatterID, "Invalid +tip input. Notation for +tip is '+tip <STEAM NAME> <AMOUNT|all> doge'."
+
+			if amount.toLowerCase() is "all"
+				amount = user.funds
+			else
+				amount = parseFloat amount, 10
+				if isNaN(amount)
+					return bot.sendMessage chatterID, "Invalid DOGE amount to tip entered"
+				if amount > user.funds
+					return bot.sendMessage chatterID, "Insufficient funds to tip that much DOGE"
+				if amount <= 0
+					return bot.sendMessage chatterID, "You must tip more than 0 DOGE"
+			# Retrieve the user's steamid
+			shibeID = undefined
+			# First check if the bot has them registered already
+			await Users_collection.findOne {"name": shibe}, defer(err, registeredShibe)
+			if err
+				console.error err
+				return bot.sendMessage chatterID, "The database ran into an error"
+			if registeredShibe
+				shibeID = registeredShibe.id
+			else
+				return bot.sendMessage chatterID, "'#{shibe}' hasn't registered yet with the bot. Have them join the group and +register."
+			# Move the funds
+			# Decrement funds
+			await Users_collection.update {id: chatterID}, {$inc: {funds: -amount}}, {w:1}, defer(err)
+			if err
+				console.error err
+				return bot.sendMessage chatterID, "The database ran into an error"
+			# Increment funds
+			await Users_collection.update {id: shibeID}, {$inc: {funds: amount}}, {w:1}, defer(err)
+			if err
+				console.error err
+				return bot.sendMessage chatterID, "The database ran into an error"
+
 
 bot.on "friend", (steamID, Relationship) ->
 	if pendingInvites.indexOf(steamID) isnt -1
