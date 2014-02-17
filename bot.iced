@@ -119,13 +119,20 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					console.error err
 					bot.sendMessage chatterID, "The database ran into an error" 
 		when "+finishadd"
-			for payment in pendingPayments
-				if payment.steamID is chatterID
+			await checkIfRegistered chatterID, defer(registered)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			unless registered
+				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
+
+			await Users_collection.findOne {id: chatterID}, defer(err, user)
+			for transaction in user.history
+				if transaction.status is "pending"
 					break
-			unless payment?
+			unless transaction?
 				return bot.sendMessage chatterID, "You have no +add requests pending"
 
-			requester "https://moolah.ch/api/pay/check/#{payment.tx}", (error, response, body) ->
+			requester "https://moolah.ch/api/pay/check/#{transaction.tx}", (error, response, body) ->
 				unless !error and response.statusCode is 200
 					console.error "#{Date.now().toString()} - #{error}, #{response}, #{body}"
 					return bot.sendMessage chatterID, "Moolah ran into an error processing your request"
@@ -134,7 +141,30 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				catch e
 					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
 				if body.status is "complete"
+					# Payment was successful
+					# Update the funds in the DB
+					for transaction, transactionIndex in user.history
+						if transaction.status is "pending"
+							transaction.status = "complete"
+							user.history[transactionIndex] = transaction
+					await Users_collection.update {id: chatterID}, {$set: {history: user.history}, $inc: {funds: transaction.amount}}, {w:1}, defer(err)
+					if err
+						console.error err
+						return bot.sendMessage chatterID, "The database ran into an error"
+
 					bot.sendMessage chatterID, "Payment processed successfully; You can now tip with it"
+				else if body.status is "cancelled"
+					# User didn't send the funds within 30 minutes
+					# Cancel the request in the DB
+					for transaction, transactionIndex in user.history
+						if transaction.status is "pending"
+							user.history.splice transactionIndex, 1
+					await Users_collection.update {id: chatterID}, {$set:{history: user.history}}, {w:1}, defer(err)
+					if err
+						console.error err
+						return bot.sendMessage chatterID, "The database ran into an error"
+					# Notify the user
+					bot.sendMessage chatterID, "Balance was not paid within 30 minutes so the transaction was cancelled"
 				else
 					bot.sendMessage chatterID, "Your payment is currently '#{body.status}'"
 
