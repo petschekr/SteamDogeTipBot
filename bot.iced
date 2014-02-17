@@ -39,9 +39,9 @@ checkIfRegistered = (steamID, cb) ->
 	await Users_collection.findOne {id: steamID}, defer(err, user)
 	if err
 		console.error err
-		cb undefined
+		cb undefined, undefined
 	registered = if user then true else false
-	cb registered
+	cb registered, user
 
 bot.on "chatMsg", (sourceID, message, type, chatterID) ->
 	if message is "Me"
@@ -73,13 +73,12 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				bot.sendMessage chatterID, "Reply '+add <AMOUNT> doge' to add dogecoins to your account"
 				bot.sendMessage chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'"
 		when "+add"
-			await checkIfRegistered chatterID, defer(registered)
+			await checkIfRegistered chatterID, defer(registered, user)
 			if registered is undefined
 				return bot.sendMessage chatterID, "The database ran into an error"
 			unless registered
 				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
 
-			await Users_collection.findOne {id: chatterID}, defer(err, user)
 			if user
 				for transaction in user.history
 					if transaction.status is "pending" then return bot.sendMessage chatterID, "You already have an +add request pending"
@@ -119,13 +118,12 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					console.error err
 					bot.sendMessage chatterID, "The database ran into an error" 
 		when "+finishadd"
-			await checkIfRegistered chatterID, defer(registered)
+			await checkIfRegistered chatterID, defer(registered, user)
 			if registered is undefined
 				return bot.sendMessage chatterID, "The database ran into an error"
 			unless registered
 				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
 
-			await Users_collection.findOne {id: chatterID}, defer(err, user)
 			for transaction in user.history
 				if transaction.status is "pending"
 					break
