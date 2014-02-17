@@ -7,7 +7,6 @@ DogeTipDiscussions = "http://steamcommunity.com/groups/DogeTip/discussions"
 DogeTipGroupID = "103582791435182182"
 
 pendingInvites = []
-pendingPayments = []
 
 # Connect to the database
 await MongoClient.connect "mongodb://192.168.1.115:27017/dogebot", defer(err, db)
@@ -74,13 +73,16 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				bot.sendMessage chatterID, "Reply '+add <AMOUNT> doge' to add dogecoins to your account"
 				bot.sendMessage chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'"
 		when "+add"
-			previousAdds = no
-			for payment in pendingPayments
-				if payment.steamID is chatterID
-					previousAdds = yes
-					break
-			if previousAdds
-				return bot.sendMessage chatterID, "You already have an +add request pending"
+			await checkIfRegistered chatterID, defer(registered)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			unless registered
+				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
+
+			await Users_collection.findOne {id: chatterID}, defer(err, user)
+			if user
+				for transaction in user.history
+					if transaction.status is "pending" then return bot.sendMessage chatterID, "You already have an +add request pending"
 
 			amount = message.split(" ")[1]
 			amount = parseInt amount, 10
@@ -93,7 +95,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					"guid": moolah.guid
 					"currency": "DOGE"
 					"amount": amount
-					"product": "Add Tipping Money"
+					"product": "Add Funds"
 					"return": ""
 			requester options, (error, response, body) ->
 				unless !error and response.statusCode is 200
@@ -104,13 +106,18 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				catch e
 					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
 				bot.sendMessage chatterID, "Visit #{body.url} or send #{body.amount} #{body.currency} to #{body.address}"
-				# TEMPORARY; USE A IPN CALLBACK
+				# TEMPORARY; USE AN IPN CALLBACK
 				bot.sendMessage chatterID, "Send '+finishadd' to finish the adding process"
-				pendingPayments.push {
-					"steamID": chatterID
-					"amount": amount
+				
+				fundTx =
+					"type": "add"
+					"amount": body.amount
+					"status": "pending"
 					"tx": body.tx
-				}
+				await Users_collection.update {id: chatterID}, {$push:{history: fundTx}}, {w:1}, defer(err)
+				if err
+					console.error err
+					bot.sendMessage chatterID, "The database ran into an error" 
 		when "+finishadd"
 			for payment in pendingPayments
 				if payment.steamID is chatterID
