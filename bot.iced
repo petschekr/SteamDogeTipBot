@@ -165,6 +165,15 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					bot.sendMessage chatterID, "Balance was not paid within 30 minutes so the transaction was cancelled"
 				else
 					bot.sendMessage chatterID, "Your payment is currently '#{body.status}'"
+		when "+balance"
+			await checkIfRegistered chatterID, defer(registered, user)
+			if registered is undefined
+				return bot.sendMessage chatterID, "The database ran into an error"
+			unless registered
+				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
+
+			balance = user.funds
+			bot.sendMessage chatterID, "You currently have #{balance} DOGE to tip with"
 
 bot.on "friend", (steamID, Relationship) ->
 	if pendingInvites.indexOf(steamID) isnt -1
