@@ -48,6 +48,8 @@ bot.on "chatMsg", (sourceID, message, type, chatterID) ->
 	if message is "Me"
 		bot.sendMessage DogeTipGroupID, bot.users[chatterID].playerName
 		bot.sendMessage DogeTipGroupID, chatterID
+	if message[0] is "+"
+		bot.sendMessage DogeTipGroupID, "I won't respond to commands on the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands."
 bot.on "friendMsg", (chatterID, message, type) ->
 	# Private messages
 	return if message is ""
