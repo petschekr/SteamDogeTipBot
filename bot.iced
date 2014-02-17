@@ -51,11 +51,18 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			bot.sendMessage chatterID, "Reply '+add <AMOUNT> doge' to add dogecoins to your account"
 			bot.sendMessage chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'"
 		when "+add"
+			previousAdds = no
+			for payment in pendingPayments
+				if payment.steamID is chatterID
+					previousAdds = yes
+					break
+			if previousAdds
+				return bot.sendMessage chatterID, "You already have an +add request pending"
+
 			amount = message.split(" ")[1]
 			amount = parseInt amount, 10
 			if isNaN(amount)
 				return bot.sendMessage chatterID, "Invalid number of doge specified"
-			bot.sendMessage chatterID, "You'll be adding #{amount} doge"
 			options =
 				"url": "https://moolah.ch/api/pay"
 				"method": "GET"
@@ -74,11 +81,32 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				catch e
 					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
 				bot.sendMessage chatterID, "Visit #{body.url} or send #{body.amount} #{body.currency} to #{body.address}"
+				# TEMPORARY; USE A IPN CALLBACK
+				bot.sendMessage chatterID, "Send '+finishadd' to finish the adding process"
 				pendingPayments.push {
 					"steamID": chatterID
 					"amount": amount
 					"tx": body.tx
 				}
+		when "+finishadd"
+			for payment in pendingPayments
+				if payment.steamID is chatterID
+					break
+			unless payment?
+				return bot.sendMessage chatterID, "You have no +add requests pending"
+
+			requester "https://moolah.ch/api/pay/check/#{payment.tx}", (error, response, body) ->
+				unless !error and response.statusCode is 200
+					console.error "#{Date.now().toString()} - #{error}, #{response}, #{body}"
+					return bot.sendMessage chatterID, "Moolah ran into an error processing your request"
+				try
+					body = JSON.parse body
+				catch e
+					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
+				if body.status is "complete"
+					bot.sendMessage chatterID, "Payment processed successfully; You can now tip with it"
+				else
+					bot.sendMessage chatterID, "Your payment is currently '#{body.status}'"
 
 bot.on "friend", (steamID, Relationship) ->
 	if pendingInvites.indexOf(steamID) isnt -1
