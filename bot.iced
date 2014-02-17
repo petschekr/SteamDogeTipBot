@@ -1,3 +1,4 @@
+http = require "http"
 fs = require "fs"
 requester = require "request"
 MongoClient = require("mongodb").MongoClient
@@ -65,6 +66,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					name: name
 					funds: 0
 					history: []
+					lastAddFundTx: ""
 				await Users_collection.insert userEntry, {w:1}, defer(err)
 				if err
 					console.error "DBError: #{err}"
@@ -96,6 +98,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					"amount": amount
 					"product": "Add Funds"
 					"return": ""
+					"ipn": "http://75.17.109.130"
 			requester options, (error, response, body) ->
 				unless !error and response.statusCode is 200
 					console.error "#{Date.now().toString()} - #{error}, #{response}, #{body}"
@@ -105,19 +108,20 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				catch e
 					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
 				bot.sendMessage chatterID, "Visit #{body.url} or send #{body.amount} #{body.currency} to #{body.address}"
-				# TEMPORARY; USE AN IPN CALLBACK
-				bot.sendMessage chatterID, "Send '+finishadd' to finish the adding process"
+				bot.sendMessage chatterID, "Keep this chat window open and the bot will notify you when your payment has been added to your account"
 				
 				fundTx =
 					"type": "add"
 					"amount": body.amount
 					"status": "pending"
 					"tx": body.tx
-				await Users_collection.update {id: chatterID}, {$push:{history: fundTx}}, {w:1}, defer(err)
+				await Users_collection.update {id: chatterID}, {$set: {lastAddFundTx: body.tx}, $push:{history: fundTx}}, {w:1}, defer(err)
 				if err
 					console.error err
 					bot.sendMessage chatterID, "The database ran into an error"
 		when "+finishadd"
+			return # Deprecate this function
+
 			await checkIfRegistered chatterID, defer(registered, user)
 			if registered is undefined
 				return bot.sendMessage chatterID, "The database ran into an error"
@@ -163,7 +167,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 						console.error err
 						return bot.sendMessage chatterID, "The database ran into an error"
 					# Notify the user
-					bot.sendMessage chatterID, "Balance was not paid within 30 minutes so the transaction was cancelled"
+					
 				else
 					bot.sendMessage chatterID, "Your payment is currently '#{body.status}'"
 		when "+balance"
@@ -310,4 +314,46 @@ bot.on "friend", (steamID, Relationship) ->
 			pendingInvites.splice pendingInvites.indexOf(steamID), 1
 
 			bot.joinChat steamID
-			bot.sendMessage steamID, "Hi, I'm DogeTippingBot"
+			#bot.sendMessage steamID, "Hi, I'm DogeTippingBot"bot.users[steamID]?.playerName
+			for user in bot.users
+				if playerName is shibe
+					undefined
+
+
+# Accept IPN callbacks from Moolah for successful payments
+###
+ipn_secret ( Your configured IPN secret. )
+status ( Status of transaction, cancelled or complete. )
+timestamp ( When this occurred. )
+tx ( Transaction ID. )
+###
+PORT = 80
+server = http.createServer (req, res) ->
+	ipnParams = require("url").parse req.url, true
+	ipnParams = ipnParams.query
+	res.end()
+
+	# Check if valid IPN callback
+	return unless ipnParams.ipn_secret is "reAEtHQzuqXfQEax9EqunysXIPN"
+	# Credit the user / or cancel the transaction
+	await Users_collection.findOne {lastAddFundTx: ipnParams.tx}, defer(err, user)
+	if err return console.error err
+
+	amount = 0
+	for transaction, transactionIndex in user.history
+		if transaction.status is "pending"
+			transaction.status = ipnParams.status
+			if ipnParams.status is "complete"
+				# Change 'amount'
+				amount = transaction.amount
+			user.history[transactionIndex] = transaction
+	await Users_collection.update {id: user.id}, {$set: {history: user.history, lastAddFundTx: ""}, $inc: {funds: amount}}, {w:1}, defer(err)
+	if err return console.error err
+
+	if ipnParams.status is "complete"
+		bot.sendMessage user.id, "You successfully added #{amount} DOGE to your funds"
+	else
+		bot.sendMessage user.id, "Balance was not paid within 30 minutes so the transaction was cancelled"
+
+server.listen PORT, ->
+	console.log "Listening for IPN callbacks on port #{PORT}"
