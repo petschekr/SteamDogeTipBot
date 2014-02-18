@@ -381,6 +381,7 @@ server = http.createServer (req, res) ->
 	# Credit the user / or cancel the transaction
 	await Users_collection.findOne {lastAddFundTx: ipnParams.tx}, defer(err, user)
 	if err then return console.error err
+	unless user then return console.error "Unable to find user for IPN callback: #{JSON.stringify ipnParams}"
 
 	amount = 0
 	for transaction, transactionIndex in user.history
