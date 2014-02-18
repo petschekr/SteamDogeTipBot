@@ -272,7 +272,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			tipInfo = message.split(" ")
 			tipInfo.shift() # Remove first element (the "+tip" command)
 			tipInfo = tipInfo.join(" ")
-			tipInfo = (/([\w\s]+?) ([\d\.]*) doge/i).exec tipInfo # Handle names with spaces
+			tipInfo = (/(.+?) ([\d\.]*) doge/i).exec tipInfo # Handle names with spaces
 			if tipInfo?
 				shibe = tipInfo[1]
 				amount = tipInfo[2]
@@ -347,7 +347,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			bot.sendMessage chatterID, helpMessage
 		when "+version"
 			bot.sendMessage chatterID, """
-			DogeTippingBot v0.1.0a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>
+			DogeTippingBot v0.1.1a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>
 			Donate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want to support its development
 			"""
 		else
