@@ -335,12 +335,15 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				+history - Display your current balance and a list of your 10 most recent transactions
 				+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address
 				+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
+				+version - Current bot version
 				+help - This help dialog
 
 			Find a bug? Want a feature? File an issue at https://github.com/petschekr/SteamDogeTipBot/issues or submit a pull request
 			Need anything else? Email me at <petschekr@gmail.com>
 			"""
 			bot.sendMessage chatterID, helpMessage
+		when "+version"
+			bot.sendMessage chatterID, "DogeTippingBot v0.1.0a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>"
 		else
 			bot.sendMessage chatterID, "I couldn't understand your request. Send me '+help' for a list of available commands and functions."
 
@@ -371,7 +374,7 @@ server = http.createServer (req, res) ->
 	res.end()
 
 	# Check if valid IPN callback
-	return unless ipnParams.ipn_secret is "reAEtHQzuqXfQEax9EqunysXIPN"
+	return unless ipnParams.ipn_secret is moolah.ipn_secret
 	# Credit the user / or cancel the transaction
 	await Users_collection.findOne {lastAddFundTx: ipnParams.tx}, defer(err, user)
 	if err then return console.error err
