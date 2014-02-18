@@ -195,6 +195,12 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				switch item.type
 					when "add"
 						message += "\n\tType: add, Amount: #{item.amount}, Status: #{item.status}"
+					when "withdraw"
+						message += "\n\tType: withdraw, Amount: #{item.amount} (-1 DOGE tx fee), Address: #{item.address}"
+					when "sent tip"
+						message += "\n\tType: sent tip, Amount: #{item.amount}, Recipient: #{item.recipient}"
+					when "received tip"
+						message += "\n\tType: received tip, Amount: #{item.amount}, Sender: #{item.sender}"
 			bot.sendMessage chatterID, message
 		when "+withdraw"
 			await checkIfRegistered chatterID, defer(registered, user)
@@ -212,15 +218,16 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			if amount.toLowerCase() is "all"
 				amount = user.funds
+				amount -= 1 # 1 DOGE network transaction fee
 			else
 				amount = parseFloat amount, 10
 				if isNaN(amount)
 					return bot.sendMessage chatterID, "Invalid DOGE to withdraw"
 				if amount > user.funds - 1
 					return bot.sendMessage chatterID, "You can't withdraw that many DOGE (remember that there is a 1 DOGE transaction fee from the network)"
-			amount -= 1 # 1 DOGE network transaction fee
 
-			payload = {amount, destination: address}
+			payload = [{amount, destination: address}]
+			payload = JSON.stringify payload
 			options =
 				"method": "POST"
 				"url": "https://moolah.ch/api/merchant/send"
@@ -238,17 +245,19 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					return bot.sendMessage chatterID, "Moolah returned invalid JSON"
 				if body.status is "failure"
 					# Something prevented Moolah from sending the money
-					console.error "#{Date.now().toString()} - Withdrawl error: #{body.reason}"
+					console.error "#{Date.now().toString()} - Withdrawl error: #{body.reason}, #{JSON.stringify options.form}"
 					return bot.sendMessage chatterID, "Moolah couldn't withdraw your funds. Stated reason: '#{body.reason}'."
 				withdrawTx =
 					"type": "withdraw"
 					"amount": -amount
 					"status": "sent"
-				await Users_collection.update {id: chatterID}, {$inc: {funds: -(amount + 1), $push:{history: withdrawTx}}, {w:1}, defer(err)
+					"address": address
+				await Users_collection.update {id: chatterID}, {$inc: {funds: -(amount + 1)}, $push:{history: withdrawTx}}, {w:1}, defer(err)
 				if err
 					console.error err
 					return bot.sendMessage chatterID, "The database ran into an error"
-				bot.sendMessage chatterID, "#{body.amount} DOGE sent to #{body.destination} successfully"
+
+				bot.sendMessage chatterID, "#{amount} DOGE sent to #{address} successfully"
 		when "+tip"
 			# Tip a Steam-using shibe
 			await checkIfRegistered chatterID, defer(registered, user)
@@ -294,6 +303,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				"type": "sent tip"
 				"amount": -amount
 				"status": "sent"
+				"recipient": shibe
 			await Users_collection.update {id: chatterID}, {$inc: {funds: -amount}, $push:{history: tip1Tx}}, {w:1}, defer(err)
 			if err
 				console.error err
@@ -303,6 +313,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				"type": "received tip"
 				"amount": amount
 				"status": "received"
+				"sender": user.name
 			await Users_collection.update {id: shibeID}, {$inc: {funds: amount}, $push:{history: tip2Tx}}, {w:1}, defer(err)
 			if err
 				console.error err
@@ -339,7 +350,7 @@ server = http.createServer (req, res) ->
 	return unless ipnParams.ipn_secret is "reAEtHQzuqXfQEax9EqunysXIPN"
 	# Credit the user / or cancel the transaction
 	await Users_collection.findOne {lastAddFundTx: ipnParams.tx}, defer(err, user)
-	if err return console.error err
+	if err then return console.error err
 
 	amount = 0
 	for transaction, transactionIndex in user.history
@@ -350,7 +361,7 @@ server = http.createServer (req, res) ->
 				amount = transaction.amount
 			user.history[transactionIndex] = transaction
 	await Users_collection.update {id: user.id}, {$set: {history: user.history, lastAddFundTx: ""}, $inc: {funds: amount}}, {w:1}, defer(err)
-	if err return console.error err
+	if err then return console.error err
 
 	if ipnParams.status is "complete"
 		bot.sendMessage user.id, "You successfully added #{amount} DOGE to your funds"
