@@ -343,7 +343,10 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			"""
 			bot.sendMessage chatterID, helpMessage
 		when "+version"
-			bot.sendMessage chatterID, "DogeTippingBot v0.1.0a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>"
+			bot.sendMessage chatterID, """
+			DogeTippingBot v0.1.0a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>
+			Donate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want to support its development
+			"""
 		else
 			bot.sendMessage chatterID, "I couldn't understand your request. Send me '+help' for a list of available commands and functions."
 
