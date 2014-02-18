@@ -380,7 +380,7 @@ server = http.createServer (req, res) ->
 	res.end()
 
 	# Check if valid IPN callback
-	return unless ipnParams.ipn_secret is moolah.ipn_secret
+	unless ipnParams.ipn_secret is moolah.ipn_secret then return console.error "Incorrect IPN secret: #{ipnParams.ipn_secret}"
 	# Credit the user / or cancel the transaction
 	await Users_collection.findOne {lastAddFundTx: ipnParams.tx}, defer(err, user)
 	if err then return console.error err
