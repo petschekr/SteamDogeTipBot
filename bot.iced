@@ -85,7 +85,9 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			if user
 				for transaction in user.history
-					if transaction.status is "pending" then return bot.sendMessage chatterID, "You already have an +add request pending"
+					if transaction.status is "pending" and transaction.amount is "add"
+						bot.sendMessage chatterID, "You already have an +add request pending"
+						return bot.sendMessage chatterID, "#{transaction.amount} DOGE are pending to #{transaction.address}. If the request isn't completed in 30 minutes, it will automatically be cancelled."
 
 			amount = message.split(" ")[1]
 			amount = parseFloat amount, 10
@@ -117,6 +119,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					"amount": body.amount
 					"status": "pending"
 					"tx": body.tx
+					"address": body.address
 				await Users_collection.update {id: chatterID}, {$set: {lastAddFundTx: body.tx}, $push:{history: fundTx}}, {w:1}, defer(err)
 				if err
 					console.error err
