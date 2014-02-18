@@ -274,7 +274,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				shibe = tipInfo[1]
 				amount = tipInfo[2]
 			else
-				return bot.sendMessage chatterID, "Invalid +tip input. Notation for +tip is '+tip <STEAM NAME> <AMOUNT|all> doge'."
+				return bot.sendMessage chatterID, "Invalid +tip input. Notation for +tip is '+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge'."
 
 			if amount.toLowerCase() is "all"
 				amount = user.funds
@@ -289,7 +289,11 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			# Retrieve the user's steamid
 			shibeID = undefined
 			# First check if the bot has them registered already
-			await Users_collection.findOne {"name": shibe}, defer(err, registeredShibe)
+			if shibe[0] is "#"
+				shibeID = shibe
+				await Users_collection.findOne {"id": shibeID}, defer(err, registeredShibe)
+			else
+				await Users_collection.findOne {"name": shibe}, defer(err, registeredShibe)
 			if err
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
@@ -330,7 +334,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				+balance - Check the amount of DOGE in your account
 				+history - Display your current balance and a list of your 10 most recent transactions
 				+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address
-				+tip <STEAM NAME> <AMOUNT|all> doge - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
+				+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
 				+help - This help dialog
 
 			Find a bug? Want a feature? File an issue at https://github.com/petschekr/SteamDogeTipBot/issues or submit a pull request
