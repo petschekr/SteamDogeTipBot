@@ -180,7 +180,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				return bot.sendMessage chatterID, "You must register before you can add funds. Do this by sending '+register'."
 
 			balance = user.funds
-			bot.sendMessage chatterID, "You currently have #{balance} DOGE to tip with"
+			bot.sendMessage chatterID, "You currently have #{balance} DOGE"
 		when "+history"
 			await checkIfRegistered chatterID, defer(registered, user)
 			if registered is undefined
@@ -190,7 +190,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			history = user.history
 			history = history.splice history.length - 10, history.length # Last 10 transactions in the history
 			message = "#{user.name}, here are your last 10 transactions:\n"
-			message += "Current balance: #{user.funds}\n"
+			message += "Current balance: #{user.funds} DOGE\n"
 			for item in history by -1 # Go backwards
 				switch item.type
 					when "add"
@@ -318,7 +318,27 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			if err
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
+		when "+help"
+			# Return a list of help
+			helpMessage = """
+			Hello there. I'm dogetippingbot.
+			New to Dogecoin? Visit the official page: http://www.dogecoin.com
 
+			Commands:
+				+register - Notify the bot that you exist. You will be added to the database.
+				+add <AMOUNT> doge - Sets up a Moolah request to add funds to your tipping account
+				+balance - Check the amount of DOGE in your account
+				+history - Display your current balance and a list of your 10 most recent transactions
+				+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address
+				+tip <STEAM NAME> <AMOUNT|all> doge - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
+				+help - This help dialog
+
+			Find a bug? Want a feature? File an issue at https://github.com/petschekr/SteamDogeTipBot/issues or submit a pull request
+			Need anything else? Email me at <petschekr@gmail.com>
+			"""
+			bot.sendMessage chatterID, helpMessage
+		else
+			bot.sendMessage chatterID, "I couldn't understand your request. Send me '+help' for a list of available commands and functions."
 
 bot.on "friend", (steamID, Relationship) ->
 	if pendingInvites.indexOf(steamID) isnt -1
