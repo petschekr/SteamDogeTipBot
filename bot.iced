@@ -326,7 +326,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
 			if /\+verify/i.test(message)
-				return bot.sendMessage DogeTipGroupID, "Shibe #{shibe} has been tipped #{amount} by #{user.name}! Wow. Such coin."				
+				bot.sendMessage DogeTipGroupID, "Shibe #{shibe} has been tipped #{amount} by #{user.name}! Wow. Such coin."				
 			bot.sendMessage chatterID, "You tipped #{shibe} #{amount} DOGE successfully"
 
 		when "+help"
@@ -341,7 +341,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				+balance - Check the amount of DOGE in your account
 				+history - Display your current balance and a list of your 10 most recent transactions
 				+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address
-				+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge +verify - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
+				+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge (+verify) - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot. If +verify is added, the bot will send a message confirming the tip to the group chat.
 				+version - Current bot version
 				+help - This help dialog
 
@@ -351,7 +351,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			bot.sendMessage chatterID, helpMessage
 		when "+version"
 			bot.sendMessage chatterID, """
-			DogeTippingBot v0.1.1a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>
+			DogeTippingBot v0.1.2a by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>
 			Donate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want to support its development
 			"""
 		else
