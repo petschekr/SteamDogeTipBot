@@ -325,7 +325,10 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			if err
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
+			if /\+verify/i.test(message)
+				return bot.sendMessage DogeTipGroupID, "Shibe #{shibe} has been tipped #{amount} by #{user.name}! Wow. Such coin."				
 			bot.sendMessage chatterID, "You tipped #{shibe} #{amount} DOGE successfully"
+
 		when "+help"
 			# Return a list of help
 			helpMessage = """
@@ -338,7 +341,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				+balance - Check the amount of DOGE in your account
 				+history - Display your current balance and a list of your 10 most recent transactions
 				+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address
-				+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
+				+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge +verify - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot
 				+version - Current bot version
 				+help - This help dialog
 
