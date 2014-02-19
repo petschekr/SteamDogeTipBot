@@ -360,16 +360,16 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			bot.sendMessage chatterID, "I couldn't understand your request. Send me '+help' for a list of available commands and functions."
 
 bot.on "friend", (steamID, Relationship) ->
-	if pendingInvites.indexOf(steamID) isnt -1
-		# Have they accepted?
-		if Relationship is Steam.EFriendRelationship.Friend
-			pendingInvites.splice pendingInvites.indexOf(steamID), 1
-
-			bot.joinChat steamID
-			#bot.sendMessage steamID, "Hi, I'm DogeTippingBot"bot.users[steamID]?.playerName
-			for user in bot.users
-				if playerName is shibe
-					undefined
+	if Relationship is Steam.EFriendRelationship.RequestRecipient or Relationship is Steam.EFriendRelationship.RequestInitiator
+		# Remove people who try to friend the bot after notifying them
+		bot.addFriend steamID
+		setTimeout ->
+			bot.sendMessage steamID, "Go to the Doge Tip group to message me. I can't accept friend requests."
+			bot.sendMessage steamID, "Removing friend..."
+			setTimeout ->
+				bot.removeFriend steamID
+			, 2000
+		, 2000
 
 
 # Accept IPN callbacks from Moolah for successful payments
