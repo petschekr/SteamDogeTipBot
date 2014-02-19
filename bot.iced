@@ -326,6 +326,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
 			bot.sendMessage chatterID, "You tipped #{shibe} #{amount} DOGE successfully"
+			bot.sendMessage shibe, "You were tipped #{amount} DOGE by #{chatterID}"
 		when "+help"
 			# Return a list of help
 			helpMessage = """
