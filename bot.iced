@@ -325,10 +325,12 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			if err
 				console.error err
 				return bot.sendMessage chatterID, "The database ran into an error"
+
 			if /\+verify/i.test(message)
 				bot.sendMessage DogeTipGroupID, "Shibe #{shibe} has been tipped #{amount} by #{user.name}! Wow. Such coin."				
+			# Notify both parties of tip
 			bot.sendMessage chatterID, "You tipped #{shibe} #{amount} DOGE successfully"
-
+			bot.sendMessage shibeID, "You were tipped #{amount} DOGE by #{user.name}"
 		when "+help"
 			# Return a list of help
 			helpMessage = """
