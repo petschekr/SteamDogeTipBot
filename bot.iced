@@ -292,8 +292,8 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			# Retrieve the user's steamid
 			shibeID = undefined
 			# First check if the bot has them registered already
-			if shibe[0] is "#"
-				shibeID = shibe
+			if shibe[0] is "#" and shibe[1..].length is 17
+				shibeID = shibe[1..] # Without the proceeding '#'
 				await Users_collection.findOne {"id": shibeID}, defer(err, registeredShibe)
 			else
 				await Users_collection.findOne {"name": shibe}, defer(err, registeredShibe)
