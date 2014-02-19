@@ -85,7 +85,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			if user
 				for transaction in user.history
-					if transaction.status is "pending" and transaction.amount is "add"
+					if transaction.status is "pending" and transaction.type is "add"
 						bot.sendMessage chatterID, "You already have an +add request pending"
 						return bot.sendMessage chatterID, "#{transaction.amount} DOGE are pending to #{transaction.address}. If the request isn't completed in 30 minutes, it will automatically be cancelled."
 
