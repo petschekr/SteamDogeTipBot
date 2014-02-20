@@ -295,6 +295,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			if shibe[0] is "#" and shibe[1..].length is 17
 				shibeID = shibe[1..] # Without the proceeding '#'
 				await Users_collection.findOne {"id": shibeID}, defer(err, registeredShibe)
+				shibe = registeredShibe.name
 			else
 				await Users_collection.findOne {"name": shibe}, defer(err, registeredShibe)
 			if err
