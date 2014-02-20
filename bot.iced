@@ -120,6 +120,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					"status": "pending"
 					"tx": body.tx
 					"address": body.address
+					"time": new Date().toDateString()
 				await Users_collection.update {id: chatterID}, {$set: {lastAddFundTx: body.tx}, $push:{history: fundTx}}, {w:1}, defer(err)
 				if err
 					console.error err
@@ -204,6 +205,8 @@ bot.on "friendMsg", (chatterID, message, type) ->
 						message += "\n\tType: sent tip, Amount: #{item.amount}, Recipient: #{item.recipient}"
 					when "received tip"
 						message += "\n\tType: received tip, Amount: #{item.amount}, Sender: #{item.sender}"
+				if item.time
+					message += ", Date: #{item.time} (EST)"
 			bot.sendMessage chatterID, message
 		when "+withdraw"
 			await checkIfRegistered chatterID, defer(registered, user)
@@ -255,6 +258,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					"amount": -amount
 					"status": "sent"
 					"address": address
+					"time": new Date().toDateString()
 				await Users_collection.update {id: chatterID}, {$inc: {funds: -(amount + 1)}, $push:{history: withdrawTx}}, {w:1}, defer(err)
 				if err
 					console.error err
@@ -312,6 +316,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				"amount": -amount
 				"status": "sent"
 				"recipient": shibe
+				"time": new Date().toDateString()
 			await Users_collection.update {id: chatterID}, {$inc: {funds: -amount}, $push:{history: tip1Tx}}, {w:1}, defer(err)
 			if err
 				console.error err
@@ -322,6 +327,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 				"amount": amount
 				"status": "received"
 				"sender": user.name
+				"time": new Date().toDateString()
 			await Users_collection.update {id: shibeID}, {$inc: {funds: amount}, $push:{history: tip2Tx}}, {w:1}, defer(err)
 			if err
 				console.error err
