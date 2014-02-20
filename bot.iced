@@ -91,7 +91,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			amount = message.split(" ")[1]
 			amount = parseFloat amount, 10
-			if isNaN(amount)
+			if isNaN(amount) or amount <= 0
 				return bot.sendMessage chatterID, "Invalid number of doge specified"
 			options =
 				"url": "https://moolah.ch/api/pay"
