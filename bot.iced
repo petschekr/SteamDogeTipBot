@@ -360,7 +360,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			bot.sendMessage chatterID, "I couldn't understand your request. Send me '+help' for a list of available commands and functions."
 
 bot.on "friend", (steamID, Relationship) ->
-	if Relationship is Steam.EFriendRelationship.RequestRecipient or Relationship is Steam.EFriendRelationship.RequestInitiator
+	if Relationship is Steam.EFriendRelationship.RequestRecipient
 		# Remove people who try to friend the bot after notifying them
 		bot.addFriend steamID
 		setTimeout ->
