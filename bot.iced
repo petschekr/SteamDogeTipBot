@@ -91,8 +91,8 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			amount = message.split(" ")[1]
 			amount = parseFloat amount, 10
-			if isNaN(amount) or amount < 0.00000001
-				return bot.sendMessage chatterID, "Invalid number of doge specified"
+			if isNaN(amount) or amount < 1
+				return bot.sendMessage chatterID, "Invalid number of doge specified, you must add at least 1 doge"
 			options =
 				"url": "https://moolah.ch/api/pay"
 				"method": "GET"
@@ -291,8 +291,8 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					return bot.sendMessage chatterID, "Invalid DOGE amount to tip entered"
 				if amount > user.funds
 					return bot.sendMessage chatterID, "Insufficient funds to tip that much DOGE"
-				if amount < 0.00000001
-					return bot.sendMessage chatterID, "You must tip more than 0 DOGE"
+				if amount < 1
+					return bot.sendMessage chatterID, "You must tip at least 1 DOGE"
 			# Retrieve the user's steamid
 			shibeID = undefined
 			# First check if the bot has them registered already
