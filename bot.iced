@@ -377,6 +377,14 @@ bot.on "friend", (steamID, Relationship) ->
 				bot.removeFriend steamID
 			, 2000
 		, 2000
+bot.on "user", (userInfo) ->
+	await Users_collection.findOne {"id": userInfo.friendid}, (err, user) ->
+	return console.error err if err
+	return unless user
+	if user.name isnt userInfo.playerName
+		# If the name was changed, update it in the database
+		await Users_collection.update {"id": userInfo.friendid}, {$set: {"name": userInfo.playerName}}, {w:1}, defer(err)
+		return console.error err if err
 
 
 # Accept IPN callbacks from Moolah for successful payments
