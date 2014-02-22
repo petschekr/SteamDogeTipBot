@@ -378,7 +378,7 @@ bot.on "friend", (steamID, Relationship) ->
 			, 2000
 		, 2000
 bot.on "user", (userInfo) ->
-	await Users_collection.findOne {"id": userInfo.friendid}, (err, user) ->
+	await Users_collection.findOne {"id": userInfo.friendid}, defer(err, user)
 	return console.error err if err
 	return unless user
 	if user.name isnt userInfo.playerName
