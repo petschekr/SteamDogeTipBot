@@ -235,13 +235,15 @@ bot.on "friendMsg", (chatterID, message, type) ->
 
 			if amount.toLowerCase() is "all"
 				amount = user.funds
-				amount -= 1 # 1 DOGE network transaction fee
 			else
 				amount = parseFloat amount, 10
 				if isNaN(amount)
 					return bot.sendMessage chatterID, "Invalid DOGE to withdraw"
 				if amount > user.funds - 1
 					return bot.sendMessage chatterID, "You can't withdraw that many DOGE (remember that there is a 1 DOGE transaction fee from the network)"
+			amount -= 1 # 1 DOGE network transaction fee
+			if amount <= 0
+				return bot.sendMessage chatterID, "You can't withdraw that many DOGE (remember that there is a 1 DOGE transaction fee from the network)"
 
 			payload = [{amount, destination: address}]
 			payload = JSON.stringify payload
