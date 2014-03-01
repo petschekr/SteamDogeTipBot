@@ -105,7 +105,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			if isNaN(amount) or amount < 1
 				return bot.sendMessage chatterID, "Invalid number of doge specified, you must add at least 1 doge"
 			options =
-				"url": "https://moolah.ch/api/pay"
+				"url": "https://moolah.io/api/pay"
 				"method": "GET"
 				"qs":
 					"guid": moolah.guid
@@ -151,7 +151,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			unless transaction?
 				return bot.sendMessage chatterID, "You have no +add requests pending"
 
-			requester "https://moolah.ch/api/pay/check/#{transaction.tx}", (error, response, body) ->
+			requester "https://moolah.io/api/pay/check/#{transaction.tx}", (error, response, body) ->
 				unless !error and response.statusCode is 200
 					console.error "#{Date.now().toString()} - #{error}, #{response}, #{body}"
 					return bot.sendMessage chatterID, "Moolah ran into an error processing your request"
@@ -249,7 +249,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 			payload = JSON.stringify payload
 			options =
 				"method": "POST"
-				"url": "https://moolah.ch/api/merchant/send"
+				"url": "https://moolah.io/api/merchant/send"
 				"form":
 					"guid": moolah.guid
 					"api_key": moolah.api_key
