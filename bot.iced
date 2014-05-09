@@ -113,7 +113,7 @@ bot.on "friendMsg", (chatterID, message, type) ->
 					"amount": amount
 					"product": "Add Funds"
 					"return": ""
-					"ipn": "http://75.17.109.130"
+					"ipn": "http://dotacinema.com:8080"
 			requester options, (error, response, body) ->
 				unless !error and response.statusCode is 200
 					console.error "#{Date.now().toString()} - #{error}, #{response}, #{body}"
@@ -407,7 +407,7 @@ status ( Status of transaction, cancelled or complete. )
 timestamp ( When this occurred. )
 tx ( Transaction ID. )
 ###
-PORT = 80
+PORT = 8080
 server = http.createServer (req, res) ->
 	ipnParams = require("url").parse req.url, true
 	ipnParams = ipnParams.query
