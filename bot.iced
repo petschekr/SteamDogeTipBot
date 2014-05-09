@@ -10,7 +10,7 @@ DogeTipGroupID = "103582791435182182"
 pendingInvites = []
 
 # Connect to the database
-await MongoClient.connect "mongodb://192.168.1.115:27017/dogebot", defer(err, db)
+await MongoClient.connect "mongodb://localhost/dogebot", defer(err, db)
 if err
 	console.error err
 	process.exit 1
