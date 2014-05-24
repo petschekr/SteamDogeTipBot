@@ -303,7 +303,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 									bot.sendMessage(chatterID, reportError(err, "Reimbursing the user for their transaction fee"));
 									return;
 								}
-								bot.sendMessage(chatterID, "The transaction fee of " + fee + " DOGE has been reimbursed")
+								bot.sendMessage(chatterID, "The transaction fee of " + fee + " DOGE has been reimbursed");
 							});
 						});
 					});
@@ -323,7 +323,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					"	+history - Display your current balance and a list of your 10 most recent transactions",
 					"	+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address (the 1 DOGE transaction fee will be covered by the bot",
 					"	+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge [+verify] - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot. If +verify is added, the bot will send a message confirming the tip to the group chat.",
-					"	+donate <AMOUNT> doge - Donate doge to the developer to keep the bot alive. The server costs about 17,000 DOGE a month. Any help is greatly appreciated!",
+					"	+donate <AMOUNT|all> doge - Donate doge to the developer to keep the bot alive. The server costs about 17,000 DOGE a month. Any help is greatly appreciated!",
 					"	+version - Current bot version",
 					"	+help - This help dialog",
 					"",
@@ -334,6 +334,80 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			break;
 		case "+version":
 			bot.sendMessage(chatterID, "DogeTippingBot v2.0.0 by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>\nDonate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want keep it running. Servers cost money!");
+			break;
+		case "+donate":
+			var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
+
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +donate"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "You must be registered to donate with your tipping account. You can also send some DOGE over to " + donationAddress);
+					return;
+				}
+				dogecoin.getBalance(chatterID, function(err: any, balance: number) {
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "Retrieving user balance in +donate"));
+						return;
+					}
+
+					var rawDonationAmount: string = message.split(" ")[1];
+					var donationAmount: number = 0;
+					if (rawDonationAmount === undefined) {
+						bot.sendMessage(chatterID, "Missing amount. Notation for +donate is '+donate <AMOUNT|all> doge'.");
+						return;
+					}
+					if (rawDonationAmount.toLowerCase() === "all") {
+						donationAmount = balance;
+					}
+					else {
+						donationAmount = parseFloat(rawDonationAmount);
+					}
+					if (isNaN(donationAmount) || donationAmount < 1) {
+						bot.sendMessage(chatterID, "Invalid amount of DOGE to donate");
+						return;
+					}
+					dogecoin.sendFrom(chatterID, donationAddress, donationAmount, function(err: any, txid: string) {
+						if (err) {
+							if (err.code === -4) {
+								// Wallet probably doesn't have enough funds
+								reportError({message: "Insufficient server funds to complete donation request", id: chatterID, address: donationAddress, amount: donationAmount}, "Donating funds");
+								bot.sendMessage(chatterID, "Sorry, the server doesn't have enough funds currently to complete that request. Most of the server's funds are kept offline in cold wallets to increase security. This bot's maintainer (RazeTheRoof) has been notified of the server's insufficient balance. He will fix this shortly. If this problem persists, please don't hesitate to email him at <petschekr@gmail.com>.");
+							}
+							else if (err.code === -6) {
+								bot.sendMessage(chatterID, "You have insufficient funds to donate that much DOGE");
+								bot.sendMessage(chatterID, "Your current balance is: " + balance + " DOGE");
+							}
+							else {
+								bot.sendMessage(chatterID, reportError({code: err.code, id: chatterID, address: donationAddress, amount: donationAmount}, "Donating funds"));
+							}
+							return;
+						}
+						bot.sendMessage(chatterID, "Your donation of " + donationAmount + " DOGE was successfully donated. (Donation address: " + donationAddress + ")\nTxID for this donation is: " + txid + "\nThank you very much for your support of this project.");
+						// Reimburse the user for their transaction fee
+						dogecoin.getTransaction(txid, function(err: any, txInfo: any) {
+							if (err) {
+								bot.sendMessage(chatterID, reportError(err, "Retrieving tx info in +donate"));
+								return;
+							}
+							var fee: number = Math.abs(txInfo.fee);
+							if (fee === 0) {
+								bot.sendMessage(chatterID, "The transaction fee was 0 DOGE");
+								return;
+							}
+							dogecoin.move("FeePool", chatterID, fee, function(err: any, success: boolean) {
+								if (err) {
+									bot.sendMessage(chatterID, reportError(err, "Reimbursing the user for their transaction fee"));
+									return;
+								}
+								bot.sendMessage(chatterID, "The transaction fee of " + fee + " DOGE has been reimbursed");
+							});
+						});
+					});
+				});
+			});
 			break;
 		case "+tip":
 			break;
