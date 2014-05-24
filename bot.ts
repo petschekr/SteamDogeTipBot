@@ -227,13 +227,24 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							return;
 						}
 						bot.sendMessage(chatterID, "Sent " + sendAmount + " DOGE to " + sendToAddress + " in tx " + txid);
-						// Reimburse the user for their transaction fee of 1 DOGE
-						dogecoin.move("FeePool", chatterID, 1, function(err: any, success: boolean) {
+						// Reimburse the user for their transaction fee
+						dogecoin.getTransaction(txid, function(err: any, txInfo: any) {
 							if (err) {
-								bot.sendMessage(chatterID, reportError(err, "Reimbursing the user for their transaction fee"));
+								bot.sendMessage(chatterID, reportError(err, "Retrieving tx info in +withdraw"));
 								return;
 							}
-							bot.sendMessage(chatterID, "The transaction fee of 1 DOGE has been reimbursed")
+							var fee: number = Math.abs(txInfo.fee);
+							if (fee === 0) {
+								bot.sendMessage(chatterID, "The transaction fee was 0 DOGE");
+								return;
+							}
+							dogecoin.move("FeePool", chatterID, fee, function(err: any, success: boolean) {
+								if (err) {
+									bot.sendMessage(chatterID, reportError(err, "Reimbursing the user for their transaction fee"));
+									return;
+								}
+								bot.sendMessage(chatterID, "The transaction fee of " + fee + " DOGE has been reimbursed")
+							});
 						});
 					});
 				});
