@@ -240,8 +240,29 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			});
 			break;
 		case "+help":
+			var helpMessage: string = 
+				[
+					"Hello there. I'm dogetippingbot.",
+					"New to Dogecoin? Visit the official page: http://www.dogecoin.com",
+					"",
+					"Commands:",
+					"	+register - Notify the bot that you exist. You will be added to the database and will receive a deposit address",
+					"	+deposit - View your deposit address",
+					"	+balance - Check the amount of DOGE in your account",
+					"	+history - Display your current balance and a list of your 10 most recent transactions",
+					"	+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address (the 1 DOGE transaction fee will be covered by the bot",
+					"	+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge [+verify] - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot. If +verify is added, the bot will send a message confirming the tip to the group chat.",
+					"	+donate <AMOUNT> doge - Donate doge to the developer to keep the bot alive. The server costs about 17,000 DOGE a month. Any help is greatly appreciated!",
+					"	+version - Current bot version",
+					"	+help - This help dialog",
+					"",
+					"Find a bug? Want a feature? File an issue at https://github.com/petschekr/SteamDogeTipBot/issues or submit a pull request",
+					"Need anything else? Email me at <petschekr@gmail.com>"
+				].join("\n");
+			bot.sendMessage(chatterID, helpMessage);
 			break;
 		case "+version":
+			bot.sendMessage(chatterID, "DogeTippingBot v2.0.0 by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>\nDonate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want keep it running. Servers cost money!");
 			break;
 		case "+tip":
 			break;
