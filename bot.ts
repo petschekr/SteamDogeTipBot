@@ -272,6 +272,11 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							if (err.code === -5) {
 								bot.sendMessage(chatterID, "Invalid withdrawal address");
 							}
+							else if (err.code === -4) {
+								// Wallet probably doesn't have enough funds
+								reportError({message: "Insufficient server funds to complete withdrawal request", id: chatterID, address: sendToAddress, amount: sendAmount}, "Withdrawing funds");
+								bot.sendMessage(chatterID, "Sorry, the server doesn't have enough funds currently to complete that request. Most of the server's funds are kept offline in cold wallets to increase security. This bot's maintainer (RazeTheRoof) has been notified of the insufficient balance. If this problem persists, please don't hesitate to email him at <petschekr@gmail.com>.");
+							}
 							else if (err.code === -6) {
 								bot.sendMessage(chatterID, "You have insufficient funds to withdraw that much DOGE");
 								bot.sendMessage(chatterID, "Your current balance is: " + balance + " DOGE");
