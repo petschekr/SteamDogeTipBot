@@ -134,7 +134,21 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					});
 				});
 			});
-
+			break;
+		case "+deposit":
+		case "+add":
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +add"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "You must be registered to add funds");
+					return;
+				}
+				bot.sendMessage(chatterID, "Your deposit address is " + user.address);
+				bot.sendMessage(chatterID, "This address is locked to your account and will not change");
+			});
 			break;
 		case "+balance":
 			break;
