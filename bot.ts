@@ -205,10 +205,10 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					}
 					else {
 						sendAmount = parseFloat(rawAmount);
-						if (isNaN(sendAmount) || sendAmount < 1) {
-							bot.sendMessage(chatterID, "Invalid amount of DOGE to withdraw");
-							return;
-						}
+					}
+					if (isNaN(sendAmount) || sendAmount < 1) {
+						bot.sendMessage(chatterID, "Invalid amount of DOGE to withdraw");
+						return;
 					}
 
 					dogecoin.sendFrom(chatterID, sendToAddress, sendAmount, function(err: any, txid: string) {
