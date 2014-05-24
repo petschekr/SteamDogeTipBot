@@ -151,6 +151,24 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			});
 			break;
 		case "+balance":
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +balance"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "You must be registered to view your balance");
+					return;
+				}
+				dogecoin.getBalance(chatterID, function(err: Error, balance: number) {
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "Retrieving user balance in +balance"));
+						return;
+					}
+					bot.sendMessage(chatterID, "Your current balance is " + balance + " DOGE");
+					bot.sendMessage(chatterID, "Your deposit address is " + user.address);
+				});
+			});
 			break;
 		case "+history":
 			break;
