@@ -354,6 +354,21 @@ bot.on("friend", function(steamID: string, relationship: number): void {
 		}, 2000);
 	}
 });
-bot.on("user", function(userInfo): void {});
+bot.on("user", function(userInfo): void {
+	Collections.Users.findOne({"id": userInfo.friendid}, function(err: Error, user) {
+		if (err) {
+			reportError(err, "Retrieving user in user change handler");
+			return;
+		}
+		if (!user)
+			return;
+		if (user.name !== userInfo.playerName) {
+			// If the name was changed, update it in the database
+			Collections.Users.update({"id": userInfo.friendid}, {$set: {"name": userInfo.playerName}}, {w:1}, function(err: Error) {
+				reportError(err, "Changing player's name in user change handler");
+			});
+		}
+	});
+});
 
 });
