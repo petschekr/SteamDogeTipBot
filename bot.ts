@@ -128,7 +128,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							bot.sendMessage(chatterID, reportError(err, "Adding new user to the database"));
 						}
 						bot.sendMessage(chatterID, "Welcome " + name + "!");
-						bot.sendMessage(chatterID, "Your deposit address is " + address);
+						bot.sendMessage(chatterID, "Your deposit address is: " + address);
 						bot.sendMessage(chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'");
 						bot.sendMessage(chatterID, "If you need help, reply with '+help'");
 					});
@@ -146,7 +146,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					bot.sendMessage(chatterID, "You must be registered to add funds");
 					return;
 				}
-				bot.sendMessage(chatterID, "Your deposit address is " + user.address);
+				bot.sendMessage(chatterID, "Your deposit address is: " + user.address);
 				bot.sendMessage(chatterID, "This address is locked to your account and will not change");
 			});
 			break;
@@ -165,8 +165,8 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						bot.sendMessage(chatterID, reportError(err, "Retrieving user balance in +balance"));
 						return;
 					}
-					bot.sendMessage(chatterID, "Your current balance is " + balance + " DOGE");
-					bot.sendMessage(chatterID, "Your deposit address is " + user.address);
+					bot.sendMessage(chatterID, "Your current balance is: " + balance + " DOGE");
+					bot.sendMessage(chatterID, "Your deposit address is: " + user.address);
 				});
 			});
 			break;
@@ -219,7 +219,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							}
 							else if (err.code === -6) {
 								bot.sendMessage(chatterID, "You have insufficient funds to withdraw that much DOGE");
-								bot.sendMessage(chatterID, "Your current balance is " + balance + " DOGE");
+								bot.sendMessage(chatterID, "Your current balance is: " + balance + " DOGE");
 							}
 							else {
 								bot.sendMessage(chatterID, reportError({code: err.code, id: chatterID, address: sendToAddress, amount: sendAmount}, "Withdrawing funds"));
