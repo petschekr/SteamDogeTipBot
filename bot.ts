@@ -31,6 +31,7 @@ credentials.rpc.password = rawCredentials.rpc.password;
 dogecoin.auth(credentials.rpc.username, credentials.rpc.password);
 
 var DogeTipGroupID: string = "103582791435182182";
+var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
 
 MongoClient.connect("mongodb://localhost:27017/dogebot", function(err: any, db: mongodb.Db) {
 if (err)
@@ -214,7 +215,10 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								message += "\n\tType: move";
 								break;
 							case "send":
-								message += "\n\tType: withdraw, Amount: " + Math.abs(transaction.amount) + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
+								if (transaction.address === donationAddress)
+									message += "\n\tType: donation, Amount: " + Math.abs(transaction.amount) + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
+								else
+									message += "\n\tType: withdraw, Amount: " + Math.abs(transaction.amount) + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
 								break;
 							case "receive":
 								message += "\n\tType: deposit, Amount: " + Math.abs(transaction.amount) + ", Confirmations: " + transaction.confirmations;
@@ -336,8 +340,6 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			bot.sendMessage(chatterID, "DogeTippingBot v2.0.0 by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>\nDonate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want keep it running. Servers cost money!");
 			break;
 		case "+donate":
-			var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
-
 			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
 				if (err) {
 					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +donate"));
