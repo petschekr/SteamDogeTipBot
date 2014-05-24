@@ -63,7 +63,7 @@ function getNameFromID(steamID: string): string {
 	else
 		return undefined;
 }
-function reportError(err: Error, context: string, justID: boolean = false) {
+function reportError(err: any, context: string, justID: boolean = false) {
 	var errorID: string = crypto.randomBytes(16).toString("hex");
 	Collections.Errors.insert({
 		"id": errorID,
@@ -173,6 +173,71 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 		case "+history":
 			break;
 		case "+withdraw":
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +withdraw"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "You must be registered to withdraw your DOGE");
+					return;
+				}
+				dogecoin.getBalance(chatterID, function(err: Error, balance: number) {
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "Retrieving user balance in +withdraw"));
+						return;
+					}
+
+					var sendToAddress: string = message.split(" ")[1];
+					if (sendToAddress === undefined) {
+						bot.sendMessage(chatterID, "Missing address. Notation for +withdraw is '+withdraw <ADDRESS> <AMOUNT|all> doge'.");
+						return;
+					}
+
+					var rawAmount: string = message.split(" ")[2];
+					var sendAmount: number = 0;
+					if (rawAmount === undefined) {
+						bot.sendMessage(chatterID, "Missing amount. Notation for +withdraw is '+withdraw <ADDRESS> <AMOUNT|all> doge'.");
+						return;
+					}
+					if (rawAmount.toLowerCase() === "all") {
+						sendAmount = balance;
+					}
+					else {
+						sendAmount = parseFloat(rawAmount);
+						if (isNaN(sendAmount) || sendAmount < 1) {
+							bot.sendMessage(chatterID, "Invalid amount of DOGE to withdraw");
+							return;
+						}
+					}
+
+					dogecoin.sendFrom(chatterID, sendToAddress, sendAmount, function(err: any, txid: string) {
+						// Full list of errors at https://github.com/dogecoin/dogecoin/blob/master/src/rpcprotocol.h#L43
+						if (err) {
+							if (err.code === -5) {
+								bot.sendMessage(chatterID, "Invalid withdrawal address");
+							}
+							else if (err.code === -6) {
+								bot.sendMessage(chatterID, "You have insufficient funds to withdraw that much DOGE");
+								bot.sendMessage(chatterID, "Your current balance is " + balance + " DOGE");
+							}
+							else {
+								bot.sendMessage(chatterID, reportError({code: err.code, id: chatterID, address: sendToAddress, amount: sendAmount}, "Withdrawing funds"));
+							}
+							return;
+						}
+						bot.sendMessage(chatterID, "Sent " + sendAmount + " DOGE to " + sendToAddress + " in tx " + txid);
+						// Reimburse the user for their transaction fee of 1 DOGE
+						dogecoin.move("FeePool", chatterID, 1, function(err: any, success: boolean) {
+							if (err) {
+								bot.sendMessage(chatterID, reportError(err, "Reimbursing the user for their transaction fee"));
+								return;
+							}
+							bot.sendMessage(chatterID, "The transaction fee of 1 DOGE has been reimbursed")
+						});
+					});
+				});
+			});
 			break;
 		case "+help":
 			break;
