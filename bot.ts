@@ -1,0 +1,170 @@
+/// <reference path="typescript_defs/node.d.ts" />
+/// <reference path="typescript_defs/mongodb.d.ts" />
+import mongodb = require("mongodb");
+
+var fs = require("fs");
+var crypto = require("crypto");
+var MongoClient = require("mongodb").MongoClient;
+var Steam = require("steam");
+var dogecoin = require('node-dogecoin')()
+
+var credentials: {
+	steam: {
+		accountName?: string;
+		password?: string;
+		shaSentryfile?: any; // Buffer
+	};
+	rpc: {
+		username?: string;
+		password?: string;
+	};
+} = {steam: {}, rpc: {}};
+var rawCredentials = JSON.parse(fs.readFileSync("auth.json", {"encoding": "utf8"}));
+credentials.steam.accountName = rawCredentials.steam.accountName;
+credentials.steam.password = rawCredentials.steam.password;
+credentials.steam.shaSentryfile = new Buffer(rawCredentials.steam.shaSentryfile, "hex");
+credentials.rpc.username = rawCredentials.rpc.username;
+credentials.rpc.password = rawCredentials.rpc.password;
+
+// Connect to Dogecoin daemon
+dogecoin.auth(credentials.rpc.username, credentials.rpc.password);
+
+var DogeTipGroupID: string = "103582791435182182";
+
+MongoClient.connect("mongodb://localhost:27017/dogebot", function(err: any, db: mongodb.Db) {
+if (err)
+	throw err
+var Collections: {
+	Users: mongodb.Collection;
+	Tips: mongodb.Collection;
+	Transactions: mongodb.Collection;
+	Errors: mongodb.Collection;
+} = {
+	Users: db.collection("users"),
+	Tips: db.collection("tips"),
+	Transactions: db.collection("transactions"),
+	Errors: db.collection("errors"),
+};
+
+var bot = new Steam.SteamClient();
+bot.logOn(credentials.steam);
+bot.on("loggedOn", function(): void {
+	console.log("Logged in as " + credentials.steam.accountName);
+	bot.setPersonaState(Steam.EPersonaState.Online) // to display your bot's status as "Online"
+	console.log("SteamID: " + bot.steamID);
+	
+	bot.joinChat(DogeTipGroupID);
+	bot.sendMessage(DogeTipGroupID, "dogetippingbot is back online");
+});
+
+function getNameFromID(steamID: string): string {
+	if (bot.users[steamID])
+		return bot.users[steamID].playerName;
+	else
+		return undefined;
+}
+function reportError(err: Error, context: string, justID: boolean = false) {
+	var errorID: string = crypto.randomBytes(16).toString("hex");
+	Collections.Errors.insert({
+		"id": errorID,
+		"timestamp": Date.now(),
+		"time": new Date().toString(),
+		"error": err,
+		"context": context || "No context reported"
+	}, {w:0}, function(): void {});
+	if (justID) {
+		return errorID;
+	} else {
+		return "An error occurred! Don't worry, it has been reported. To receive support with this error, please include the error code of '" + errorID + "'. Sorry for the inconvenience.";
+	}
+};
+
+bot.on("chatMsg", function(sourceID: string, message: string, type: number, chatterID: string): void {
+	if (message[0] === "+") {
+    	switch (message) {
+			case "+me":
+				bot.sendMessage(DogeTipGroupID, bot.users[chatterID].playerName);
+				bot.sendMessage(DogeTipGroupID, chatterID);
+				break;
+			case "+stats":
+				bot.sendMessage(DogeTipGroupID, "0 users have registered and tipped other shibes 0 times");
+				break;
+			default:
+				bot.sendMessage(DogeTipGroupID, "I won't respond to commands on the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
+    	}
+  	}
+});
+bot.on("friendMsg", function(chatterID: string, message: string, type: number): void {
+	// Private messages
+	if (message === "")
+		return;
+	switch (message.split(" ")[0]) { // The command part
+		case "+register":
+			var name: string = getNameFromID(chatterID);
+
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, previousUser) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Checking for previous user in +register"));
+					return;
+				}
+				if (previousUser) {
+					bot.sendMessage(chatterID, "You've already registered");
+					return;
+				}
+
+				dogecoin.getNewAddress(chatterID, function(err: Error, address: string) { // chatterID is that user's account
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "Generating address for new user"));
+						return;
+					}
+					var userEntry = {
+						"id": chatterID,
+						"name": name,
+						"history": [],
+						"address": address
+					};
+					Collections.Users.insert(userEntry, {w:1}, function(err: Error) {
+						if (err) {
+							bot.sendMessage(chatterID, reportError(err, "Adding new user to the database"));
+						}
+						bot.sendMessage(chatterID, "Welcome " + name + "!");
+						bot.sendMessage(chatterID, "Your deposit address is " + address);
+						bot.sendMessage(chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'");
+						bot.sendMessage(chatterID, "If you need help, reply with '+help'");
+					});
+				});
+			});
+
+			break;
+		case "+balance":
+			break;
+		case "+history":
+			break;
+		case "+withdraw":
+			break;
+		case "+help":
+			break;
+		case "+version":
+			break;
+		case "+tip":
+			break;
+		default:
+			bot.sendMessage(chatterID, "I couldn't understand your request. Reply with '+help' for a list of available commands and functions.");
+	}
+});
+
+bot.on("friend", function(steamID: string, relationship: number): void {
+	if (relationship === Steam.EFriendRelationship.RequestRecipient) {
+		bot.addFriend(steamID);
+		setTimeout(function(): void {
+			bot.sendMessage(steamID, "Go to the Doge Tip group to message me. I can't accept friend requests.");
+			bot.sendMessage(steamID, "Removing friend...");
+			setTimeout(function(): void {
+				bot.removeFriend(steamID);
+			}, 2000);
+		}, 2000);
+	}
+});
+bot.on("user", function(userInfo): void {});
+
+});
