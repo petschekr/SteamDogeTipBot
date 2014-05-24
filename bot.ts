@@ -6,7 +6,8 @@ var fs = require("fs");
 var crypto = require("crypto");
 var MongoClient = require("mongodb").MongoClient;
 var Steam = require("steam");
-var dogecoin = require('node-dogecoin')()
+var dogecoin = require("node-dogecoin")()
+var async = require("async");
 
 var credentials: {
 	steam: {
@@ -120,7 +121,6 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					var userEntry = {
 						"id": chatterID,
 						"name": name,
-						"history": [],
 						"address": address
 					};
 					Collections.Users.insert(userEntry, {w:1}, function(err: Error) {
@@ -171,6 +171,61 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			});
 			break;
 		case "+history":
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +history"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "You must be registered to view your history");
+					return;
+				}
+				var numberOfTransactions: number = 10;
+				async.parallel([
+					function(callback) {
+						dogecoin.getBalance(chatterID, callback);
+					},
+					function(callback) {
+						// Get 20 most recent transactions because moves from the FeePool also count and must be expunged
+						dogecoin.listTransactions(chatterID, numberOfTransactions * 2, callback);
+					}
+				], function(err: any, results: any) {
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "async.parallel in +history"));
+						return;
+					}
+					var balance: number = results[0];
+					var rawTransactions: any[] = results[1];
+					var transactions: any[] = [];
+					// Purge tx fee reimbursements
+					for (var i: number = 0; i < rawTransactions.length; i++) {
+						if (rawTransactions[i].category === "move" && rawTransactions[i].otheraccount === "FeePool") {
+							continue;
+						}
+						transactions.unshift(rawTransactions[i]);
+					}
+					var message: string = "\n" + user.name + ", here are your last 10 transactions:\n";
+					message += "Your current balance is: " + balance + " DOGE\n";
+					message += "Your deposit address is: " + user.address + "\n";
+					for (var i: number = 0; i < transactions.length; i++) {
+						var transaction: any = transactions[i];
+						switch (transaction.category) {
+							case "move":
+								message += "\n\tType: move";
+								break;
+							case "send":
+								message += "\n\tType: withdraw, Amount: " + Math.abs(transaction.amount) + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
+								break;
+							case "receive":
+								message += "\n\tType: deposit, Amount: " + Math.abs(transaction.amount) + ", Confirmations: " + transaction.confirmations;
+								break;
+						}
+						var time: Date = new Date(transaction.time * 1000); // Dogecoind returns a time that is missing the last 3 digits so multiplying by 1000 fixes this
+						message += ", Date: " + time.toDateString() + " (EST)";
+					}
+					bot.sendMessage(chatterID, message);
+				});
+			});
 			break;
 		case "+withdraw":
 			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
