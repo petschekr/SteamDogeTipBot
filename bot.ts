@@ -205,6 +205,8 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						}
 						transactions.unshift(rawTransactions[i]);
 					}
+					// Restrict to 10 transactions
+					transactions.splice(numberOfTransactions, transactions.length);
 					var message: string = "\n" + user.name + ", here are your last 10 transactions:\n";
 					message += "Your current balance is: " + balance + " DOGE\n";
 					message += "Your deposit address is: " + user.address + "\n";
