@@ -502,9 +502,29 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							}
 							if (/\+verify/i.test(message))
 								bot.sendMessage(DogeTipGroupID, personToTipName + " was tipped " + amount + " DOGE by " + user.name + "!");
-							// Notify both parties of tip
-							bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully");
-							bot.sendMessage(personToTipID, "You were tipped " + amount + " DOGE by " + user.name);
+							// Add the tip to the database
+							Collections.Tips.insert({
+								"sender": {
+									"name": tipComment.sender,
+									"id": chatterID
+								},
+								"recipient": {
+									"name": tipComment.recipient,
+									"id": personToTipID
+								},
+								"amount": amount,
+								"timestamp": Date.now(),
+								"time": new Date().toString(),
+								"groupID": DogeTipGroupID
+							}, {w:1}, function(err): void {
+								if (err) {
+									bot.sendMessage(chatterID, reportError(err, "Inserting tip into database"));
+									return;
+								}
+								// Notify both parties of tip
+								bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully");
+								bot.sendMessage(personToTipID, "You were tipped " + amount + " DOGE by " + user.name);
+							});
 						});
 					});
 				});
