@@ -429,6 +429,86 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			});
 			break;
 		case "+tip":
+			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Retrieving user in +tip"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "You must be registered to tip someone");
+					return;
+				}
+				dogecoin.getBalance(chatterID, function(err: any, balance: number) {
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "Retrieving user balance in +tip"));
+						return;
+					}
+
+					var tipInfo: any = message.split(" ");
+					tipInfo.shift(); // Remove first element (the "+tip" command)
+					tipInfo = tipInfo.join(" ");
+					tipInfo = (/(.+?) ([\d\.]*) doge/i).exec(tipInfo) // Handle names with spaces
+					if (tipInfo) {
+						var personToTipName = tipInfo[1];
+						var rawAmount: string = tipInfo[2];
+					}
+					else {
+						bot.sendMessage(chatterID, "Invalid +tip format. Notation for +tip is '+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge'.");
+						return;
+					}
+					var amount: number = 0;
+					if (rawAmount.toLowerCase() === "all") {
+						amount = balance;
+					}
+					else {
+						amount = parseFloat(rawAmount);
+						if (isNaN(amount)) {
+							bot.sendMessage(chatterID, "Invalid DOGE amount to tip entered");
+							return;
+						}
+					}
+					if (amount > balance) {
+						bot.sendMessage(chatterID, "Insufficient funds to tip that much DOGE");
+						bot.sendMessage(chatterID, "You can deposit more DOGE to your deposit address: " + user.address);
+						return;
+					}
+					if (amount < 1) {
+						bot.sendMessage(chatterID, "You must tip at least 1 DOGE");
+						return;
+					}
+					Collections.Users.find({name: personToTipName}).toArray(function(err: Error, possibleUsers: any[]) {
+						if (err) {
+							bot.sendMessage(chatterID, reportError(err, "Retrieving users for +tip"));
+							return;
+						}
+						if (possibleUsers.length < 1) {
+							bot.sendMessage(chatterID, "I can't find any users with that nickname!");
+							bot.sendMessage(chatterID, "Reply with their community URL to tip them. You can find this URL by visiting their profile page and right clicking > Copy Page URL.");
+							return;
+						}
+						if (possibleUsers.length > 1) {
+							bot.sendMessage(chatterID, "There are multiple users with that nickname!");
+							return;
+						}
+						var personToTipID: string = possibleUsers[0].id;
+						var tipComment = {
+							"sender": user.name,
+							"recipient": personToTipName
+						};
+						dogecoin.move(chatterID, personToTipID, amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+							if (err) {
+								bot.sendMessage(chatterID, reportError(err, "Moving funds while tipping"));
+								return;
+							}
+							if (/\+verify/i.test(message))
+								bot.sendMessage(DogeTipGroupID, personToTipName + " was tipped " + amount + " DOGE by " + user.name + "!");
+							// Notify both parties of tip
+							bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully");
+							bot.sendMessage(personToTipID, "You were tipped " + amount + " DOGE by " + user.name);
+						});
+					});
+				});
+			});
 			break;
 		default:
 			bot.sendMessage(chatterID, "I couldn't understand your request. Reply with '+help' for a list of available commands and functions.");
