@@ -2,12 +2,14 @@
 /// <reference path="typescript_defs/mongodb.d.ts" />
 import mongodb = require("mongodb");
 
+var http = require("http");
 var fs = require("fs");
 var crypto = require("crypto");
 var MongoClient = require("mongodb").MongoClient;
 var Steam = require("steam");
 var dogecoin = require("node-dogecoin")()
 var async = require("async");
+var cheerio = require("cheerio");
 
 var credentials: {
 	steam: {
@@ -453,7 +455,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						var rawAmount: string = tipInfo[2];
 					}
 					else {
-						bot.sendMessage(chatterID, "Invalid +tip format. Notation for +tip is '+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge'.");
+						bot.sendMessage(chatterID, "Invalid +tip format. Notation for +tip is '+tip <STEAM NAME|COMMUNITY URL> <AMOUNT|all> doge'.");
 						return;
 					}
 					var amount: number = 0;
@@ -480,57 +482,99 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						bot.sendMessage(chatterID, "I'm sorry, but you can't tip me. If you would like to donate, please reply with '+donate <AMOUNT> doge'. Thank you!");
 						return;
 					}
-					Collections.Users.find({name: personToTipName}).toArray(function(err: Error, possibleUsers: any[]) {
-						if (err) {
-							bot.sendMessage(chatterID, reportError(err, "Retrieving users for +tip"));
-							return;
-						}
-						if (possibleUsers.length < 1) {
-							bot.sendMessage(chatterID, "I can't find any users with that nickname!");
-							bot.sendMessage(chatterID, "Reply with their community URL to tip them. You can find this URL by visiting their profile page and right clicking > Copy Page URL.");
-							return;
-						}
-						if (possibleUsers.length > 1) {
-							bot.sendMessage(chatterID, "There are multiple users with that nickname!");
-							return;
-						}
-						var personToTipID: string = possibleUsers[0].id;
-						var tipComment = {
-							"sender": user.name,
-							"recipient": personToTipName
-						};
-						dogecoin.move(chatterID, personToTipID, amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
-							if (err) {
-								bot.sendMessage(chatterID, reportError(err, "Moving funds while tipping"));
-								return;
-							}
-							if (/\+verify/i.test(message))
-								bot.sendMessage(DogeTipGroupID, personToTipName + " was tipped " + amount + " DOGE by " + user.name + "!");
-							// Add the tip to the database
-							Collections.Tips.insert({
-								"sender": {
-									"name": tipComment.sender,
-									"id": chatterID
-								},
-								"recipient": {
-									"name": tipComment.recipient,
-									"id": personToTipID
-								},
-								"amount": amount,
-								"timestamp": Date.now(),
-								"time": new Date().toString(),
-								"groupID": DogeTipGroupID
-							}, {w:1}, function(err): void {
-								if (err) {
-									bot.sendMessage(chatterID, reportError(err, "Inserting tip into database"));
+					var personToTipID: string = undefined;
+					if ((/^https?:\/\/steamcommunity\.com\/(?:id|profiles)\/.*$/i).exec(personToTipName)) {
+						var communityURL: string = personToTipName;
+						communityURL += "?xml=1"; // Get Steam to return an XML description
+						http.get(communityURL, function(response) {
+							response.setEncoding("utf8");
+							var content: string = "";
+							response.on("data", function (chunk): void {
+								content += chunk;
+							});
+							response.on("end", function(): void {
+								var $: any = cheerio.load(content, {xmlMode: true});
+								personToTipID = $("steamID64").text();
+								personToTipName = $("steamID").text();
+								if (!personToTipName || !personToTipID) {
+									bot.sendMessage(chatterID, "Oops, you probably entered the wrong Steam Community URL.");
+									bot.sendMessage(chatterID, "These URLs have the format of <http://steamcommunity.com/id/razed> or <http://steamcommunity.com/profiles/76561198066172487>");
+									bot.sendMessage(chatterID, "Make sure that you go to the person you want to tip's profile page and right click > Copy Page URL.");
 									return;
 								}
-								// Notify both parties of tip
-								bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully");
-								bot.sendMessage(personToTipID, "You were tipped " + amount + " DOGE by " + user.name);
+								continueWithTip();
+							});
+						}).on("error", function(err) {
+							err.URL = communityURL;
+							bot.sendMessage(chatterID, reportError(err, "Retrieving user information via their community URL"));
+							return;''
+						});
+					}
+					else {
+						continueWithTip();
+					}
+					function continueWithTip(): void {
+						Collections.Users.find({name: personToTipName}).toArray(function(err: Error, possibleUsers: any[]) {
+							if (err) {
+								bot.sendMessage(chatterID, reportError(err, "Retrieving users for +tip"));
+								return;
+							}
+							if (personToTipID === undefined) {
+								if (possibleUsers.length < 1) {
+									bot.sendMessage(chatterID, "I can't find any users with that nickname!");
+									bot.sendMessage(chatterID, "Find community URL to tip them. You can find this URL by visiting their profile page and right clicking > Copy Page URL.");
+									bot.sendMessage(chatterID, "Then, tip with '+tip <COMMUNITY URL> <AMOUNT> doge'");
+									bot.sendMessage(chatterID, "For example, '+tip http://steamcommunity.com/id/razed/ 100 doge +verify'");
+									bot.sendMessage(chatterID, "They will receive a friend request and if they accept, they will be registered with the bot so you can tip them with their nickname.");
+									bot.sendMessage(chatterID, "They will have 24 hours to accept before the tip is refunded.");
+									return;
+								}
+								if (possibleUsers.length > 1) {
+									bot.sendMessage(chatterID, "There are multiple users with that nickname!");
+									return;
+								}
+								personToTipID = possibleUsers[0].id;
+							}
+							if (personToTipID === chatterID) {
+								bot.sendMessage(chatterID, "wow. such self tip.");
+							}
+							var tipComment = {
+								"sender": user.name,
+								"recipient": personToTipName
+							};
+							dogecoin.move(chatterID, personToTipID, amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+								if (err) {
+									bot.sendMessage(chatterID, reportError(err, "Moving funds while tipping"));
+									return;
+								}
+								if (/\+verify/i.test(message))
+									bot.sendMessage(DogeTipGroupID, personToTipName + " was tipped " + amount + " DOGE by " + user.name + "!");
+								// Add the tip to the database
+								Collections.Tips.insert({
+									"sender": {
+										"name": tipComment.sender,
+										"id": chatterID
+									},
+									"recipient": {
+										"name": tipComment.recipient,
+										"id": personToTipID
+									},
+									"amount": amount,
+									"timestamp": Date.now(),
+									"time": new Date().toString(),
+									"groupID": DogeTipGroupID
+								}, {w:1}, function(err): void {
+									if (err) {
+										bot.sendMessage(chatterID, reportError(err, "Inserting tip into database"));
+										return;
+									}
+									// Notify both parties of tip
+									bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully");
+									bot.sendMessage(personToTipID, "You were tipped " + amount + " DOGE by " + user.name);
+								});
 							});
 						});
-					});
+					}
 				});
 			});
 			break;
