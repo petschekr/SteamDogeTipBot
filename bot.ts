@@ -214,16 +214,31 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						var transaction: any = transactions[i];
 						switch (transaction.category) {
 							case "move":
-								message += "\n\tType: move";
+								try {
+									JSON.parse(transaction.comment);
+								}
+								catch (e) {
+									continue;
+								}
+								if (transaction.amount > 0) {
+									// Received tip
+									var sender: string = JSON.parse(transaction.comment).sender;
+									message += "\n\tType: received tip, Amount: " + transaction.amount + ", Sender " + sender;
+								}
+								else if (transaction.amount < 0) {
+									// Sent tip
+									var recipient: string = JSON.parse(transaction.comment).recipient;
+									message += "\n\tType: sent tip, Amount: " + transaction.amount + ", Recipient " + recipient;
+								}
 								break;
 							case "send":
 								if (transaction.address === donationAddress)
-									message += "\n\tType: donation, Amount: " + Math.abs(transaction.amount) + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
+									message += "\n\tType: donation, Amount: " + transaction.amount + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
 								else
-									message += "\n\tType: withdraw, Amount: " + Math.abs(transaction.amount) + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
+									message += "\n\tType: withdraw, Amount: " + transaction.amount + ", Address: " + transaction.address + ", Confirmations: " + transaction.confirmations;
 								break;
 							case "receive":
-								message += "\n\tType: deposit, Amount: " + Math.abs(transaction.amount) + ", Confirmations: " + transaction.confirmations;
+								message += "\n\tType: deposit, Amount: " + transaction.amount + ", Confirmations: " + transaction.confirmations;
 								break;
 						}
 						var time: Date = new Date(transaction.time * 1000); // Dogecoind returns a time that is missing the last 3 digits so multiplying by 1000 fixes this
