@@ -476,6 +476,10 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						bot.sendMessage(chatterID, "You must tip at least 1 DOGE");
 						return;
 					}
+					if (personToTipName.toLowerCase() === "dogetippingbot") {
+						bot.sendMessage(chatterID, "I'm sorry, but you can't tip me. If you would like to donate, please reply with '+donate <AMOUNT> doge'. Thank you!");
+						return;
+					}
 					Collections.Users.find({name: personToTipName}).toArray(function(err: Error, possibleUsers: any[]) {
 						if (err) {
 							bot.sendMessage(chatterID, reportError(err, "Retrieving users for +tip"));
