@@ -455,7 +455,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					var tipInfo: any = message.split(" ");
 					tipInfo.shift(); // Remove first element (the "+tip" command)
 					tipInfo = tipInfo.join(" ");
-					tipInfo = (/(.+?) ([\d\.]*) doge/i).exec(tipInfo) // Handle names with spaces
+					tipInfo = (/(.+?) ([\d\.]*)/i).exec(tipInfo) // Handle names with spaces
 					if (tipInfo) {
 						var personToTipName = tipInfo[1];
 						var rawAmount: string = tipInfo[2];
