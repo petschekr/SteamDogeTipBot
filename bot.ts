@@ -100,6 +100,10 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 						Collections.Tips.find({"accepted": true}).toArray(callback);
 					}
 				], function(err: Error, results: any[]): void {
+					if (err) {
+						bot.sendMessage(DogeTipGroupID, reportError(err, "Retrieving stats for +stats"));
+						return;
+					}
 					var users: any = results[0];
 					var tips: any = results[1];
 					var totalAmount: number = 0;
