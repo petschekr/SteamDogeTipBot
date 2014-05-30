@@ -92,7 +92,29 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 				bot.sendMessage(DogeTipGroupID, chatterID);
 				break;
 			case "+stats":
-				bot.sendMessage(DogeTipGroupID, "0 users have registered and tipped other shibes 0 times");
+				async.parallel([
+					function(callback) {
+						Collections.Users.find().toArray(callback);
+					},
+					function(callback) {
+						Collections.Tips.find({"accepted": true}).toArray(callback);
+					}
+				], function(err: Error, results: any[]): void {
+					var users: any = results[0];
+					var tips: any = results[1];
+					var totalAmount: number = 0;
+					for (var i: number = 0; i < tips.length; i++) {
+						totalAmount += tips[i].amount;
+					}
+					var statsMessage: string = 
+						[
+							"Stats current as of " + new Date().toString(),
+							"Registered users: " + users.length,
+							"Total tips: " + tips.length,
+							"Total tip volume: " + totalAmount + " DOGE"
+						].join("\n");
+					bot.sendMessage(DogeTipGroupID, statsMessage);
+				});
 				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands on the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
