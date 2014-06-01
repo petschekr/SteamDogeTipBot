@@ -82,7 +82,51 @@ function reportError(err: any, context: string, justID: boolean = false) {
 	} else {
 		return "An error occurred! Don't worry, it has been reported. To receive support with this error, please include the error code of '" + errorID + "'. Sorry for the inconvenience.";
 	}
+}
+function getHTTPPage(url: string, callback: (err: Error, content: string) => void): void {
+	http.get(url, function(response) {
+		response.setEncoding("utf8");
+		var content: string = "";
+		response.on("data", function (chunk): void {
+			content += chunk;
+		});
+		response.on("end", function(): void {
+			callback(null, content);
+		});
+	}).on("error", function(err) {
+		err.URL = url;
+		callback(err, null);
+	});
+}
+var prices = {
+	"BTC/USD": null,
+	"DOGE/BTC": null,
+	"DOGE/USD": null
 };
+function getPrices(): void {
+	async.parallel([
+		function(callback) {
+			// Coinbase BTC/USD price
+			getHTTPPage("https://coinbase.com/api/v1/currencies/exchange_rates", callback);
+		},
+		function(callback) {
+			// Cryptsy DOGE/BTC price
+			getHTTPPage("http://pubapi.cryptsy.com/api.php?method=singlemarketdata&marketid=132", callback);
+		}
+	], function(err: Error, results: any[]): void {
+		if (err) {
+			reportError(err, "Getting current prices");
+			return;
+		}
+		prices["BTC/USD"] = parseFloat(JSON.parse(results[0])["btc_to_usd"]);
+		prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1]).return.markets.DOGE.lasttradeprice);
+		prices["DOGE/USD"] = prices["BTC/USD"] * prices["DOGE/BTC"];
+		// Return to strings with .toFixed(8)
+	});
+}
+getPrices();
+// Cryptsy's API is updated every 15 minutes so update every 15 minutes
+setInterval(getPrices, 1000 * 60 * 15);
 
 bot.on("chatMsg", function(sourceID: string, message: string, type: number, chatterID: string): void {
 	if (message[0] === "+") {
@@ -520,58 +564,53 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						var communityURL: string = personToTipName;
 						unregisteredUser = true;
 						communityURL += "?xml=1"; // Get Steam to return an XML description
-						http.get(communityURL, function(response) {
-							response.setEncoding("utf8");
-							var content: string = "";
-							response.on("data", function (chunk): void {
-								content += chunk;
-							});
-							response.on("end", function(): void {
-								var $: any = cheerio.load(content, {xmlMode: true});
-								personToTipID = $("steamID64").text();
-								personToTipName = $("steamID").text();
-								if (!personToTipName || !personToTipID) {
-									bot.sendMessage(chatterID, "Oops, you probably entered the wrong Steam Community URL.");
-									bot.sendMessage(chatterID, "These URLs have the format of <http://steamcommunity.com/id/razed> or <http://steamcommunity.com/profiles/76561198066172487>");
-									bot.sendMessage(chatterID, "Make sure that you go to the person you want to tip's profile page and right click > Copy Page URL.");
+
+						getHTTPPage(communityURL, function(err: Error, content: string): void {
+							if (err) {
+								bot.sendMessage(chatterID, reportError(err, "Retrieving user information via their community URL"));
+								return;
+							}
+							var $: any = cheerio.load(content, {xmlMode: true});
+							personToTipID = $("steamID64").text();
+							personToTipName = $("steamID").text();
+							if (!personToTipName || !personToTipID) {
+								bot.sendMessage(chatterID, "Oops, you probably entered the wrong Steam Community URL.");
+								bot.sendMessage(chatterID, "These URLs have the format of <http://steamcommunity.com/id/razed> or <http://steamcommunity.com/profiles/76561198066172487>");
+								bot.sendMessage(chatterID, "Make sure that you go to the person you want to tip's profile page and right click > Copy Page URL.");
+								return;
+							}
+							// Check the Steam ID against the blacklist
+							Collections.Blacklist.findOne({"id": personToTipID}, function(err: Error, blacklistedUser) {
+								if (err) {
+									bot.sendMessage(chatterID, reportError(err, "Checking user against blacklist"));
 									return;
 								}
-								// Check the Steam ID against the blacklist
-								Collections.Blacklist.findOne({"id": personToTipID}, function(err: Error, blacklistedUser) {
+								if (blacklistedUser) {
+									bot.sendMessage(chatterID, personToTipName + " has requested to be left alone by the bot. Please contact RazeTheRoof if this is somehow in error.");
+									return;
+								}
+								// Send them a friend request and add them to the db
+								bot.addFriend(personToTipID);
+								dogecoin.getNewAddress(personToTipID, function(err: Error, address: string) {
 									if (err) {
-										bot.sendMessage(chatterID, reportError(err, "Checking user against blacklist"));
+										bot.sendMessage(chatterID, reportError(err, "Generating address for autoregistered user"));
 										return;
 									}
-									if (blacklistedUser) {
-										bot.sendMessage(chatterID, personToTipName + " has requested to be left alone by the bot. Please contact RazeTheRoof if this is somehow in error.");
-										return;
-									}
-									// Send them a friend request and add them to the db
-									bot.addFriend(personToTipID);
-									dogecoin.getNewAddress(personToTipID, function(err: Error, address: string) {
+									Collections.Users.insert({
+										"id": personToTipID,
+										"name": personToTipName,
+										"address": address,
+										"favorites": {},
+										"autoregistered": true
+									}, {w:1}, function(err: Error) {
 										if (err) {
-											bot.sendMessage(chatterID, reportError(err, "Generating address for autoregistered user"));
+											bot.sendMessage(chatterID, reportError(err, "Autoregistering user in database"));
 											return;
 										}
-										Collections.Users.insert({
-											"id": personToTipID,
-											"name": personToTipName,
-											"address": address,
-											"autoregistered": true,
-										}, {w:1}, function(err: Error) {
-											if (err) {
-												bot.sendMessage(chatterID, reportError(err, "Autoregistering user in database"));
-												return;
-											}
-											continueWithTip();
-										});
+										continueWithTip();
 									});
 								});
 							});
-						}).on("error", function(err) {
-							err.URL = communityURL;
-							bot.sendMessage(chatterID, reportError(err, "Retrieving user information via their community URL"));
-							return;''
 						});
 					}
 					else {
