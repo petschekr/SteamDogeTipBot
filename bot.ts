@@ -309,26 +309,33 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						var transaction: any = transactions[i];
 						switch (transaction.category) {
 							case "move":
+								var parsedComment: any;
 								try {
-									JSON.parse(transaction.comment);
+									parsedComment = JSON.parse(transaction.comment);
 								}
 								catch (e) {
 									continue;
 								}
-								if (JSON.parse(transaction.comment).refund) {
+								if (parsedComment.refund) {
 									// Refunded tip
-									var sender: string = JSON.parse(transaction.comment).sender;
+									var sender: string = parsedComment.sender;
 									message += "\n\tType: refunded tip, Amount: " + transaction.amount + ", Original Recipient: " + sender;
+									if (parsedComment.USD)
+										message += ", USD: $" + parsedComment.USD.toPrecision(2);
 								}
 								else if (transaction.amount > 0) {
 									// Received tip
-									var sender: string = JSON.parse(transaction.comment).sender;
+									var sender: string = parsedComment.sender;
 									message += "\n\tType: received tip, Amount: " + transaction.amount + ", Sender: " + sender;
+									if (parsedComment.USD)
+										message += ", USD: $" + parsedComment.USD.toPrecision(2);
 								}
 								else if (transaction.amount < 0) {
 									// Sent tip
-									var recipient: string = JSON.parse(transaction.comment).recipient;
+									var recipient: string = parsedComment.recipient;
 									message += "\n\tType: sent tip, Amount: " + transaction.amount + ", Recipient: " + recipient;
+									if (parsedComment.USD)
+										message += ", USD: $" + parsedComment.USD.toPrecision(2);
 								}
 								break;
 							case "send":
@@ -701,7 +708,8 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							var tipComment = {
 								"sender": user.name,
 								"recipient": personToTipName,
-								"refund": false
+								"refund": false,
+								"USD": amount * prices["DOGE/USD"]
 							};
 							dogecoin.move(chatterID, personToTipID, amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
 								if (err) {
@@ -721,6 +729,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 										"id": personToTipID
 									},
 									"amount": amount,
+									"USD": amount * prices["DOGE/USD"],
 									"timestamp": Date.now(),
 									"time": new Date().toString(),
 									"groupID": DogeTipGroupID,
@@ -868,7 +877,8 @@ setInterval(function(): void {
 				var tipComment = {
 					"sender": tip.recipient.name,
 					"recipient": tip.sender.name,
-					"refund": true
+					"refund": true,
+					"USD": tip.amount * prices["DOGE/USD"]
 				};
 				dogecoin.move(tip.recipient.id, tip.sender.id, tip.amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
 					if (err) {
