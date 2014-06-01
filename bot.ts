@@ -3,6 +3,8 @@
 import mongodb = require("mongodb");
 
 var http = require("http");
+var https = require("https");
+var urllib = require("url");
 var fs = require("fs");
 var crypto = require("crypto");
 var MongoClient = require("mongodb").MongoClient;
@@ -10,6 +12,7 @@ var Steam = require("steam");
 var dogecoin = require("node-dogecoin")()
 var async = require("async");
 var cheerio = require("cheerio");
+var numeral = require("numeral");
 
 var credentials: {
 	steam: {
@@ -84,7 +87,8 @@ function reportError(err: any, context: string, justID: boolean = false) {
 	}
 }
 function getHTTPPage(url: string, callback: (err: Error, content: string) => void): void {
-	http.get(url, function(response) {
+	var moduleToUse = (urllib.parse(url).protocol === "https:") ? https : http;
+	moduleToUse.get(url, function(response) {
 		response.setEncoding("utf8");
 		var content: string = "";
 		response.on("data", function (chunk): void {
@@ -101,7 +105,8 @@ function getHTTPPage(url: string, callback: (err: Error, content: string) => voi
 var prices = {
 	"BTC/USD": null,
 	"DOGE/BTC": null,
-	"DOGE/USD": null
+	"DOGE/USD": null,
+	"LastUpdated": null
 };
 function getPrices(): void {
 	async.parallel([
@@ -122,6 +127,7 @@ function getPrices(): void {
 		prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1]).return.markets.DOGE.lasttradeprice);
 		prices["DOGE/USD"] = prices["BTC/USD"] * prices["DOGE/BTC"];
 		// Return to strings with .toFixed(8)
+		prices.LastUpdated = Date.now();
 	});
 }
 getPrices();
@@ -130,7 +136,7 @@ setInterval(getPrices, 1000 * 60 * 15);
 
 bot.on("chatMsg", function(sourceID: string, message: string, type: number, chatterID: string): void {
 	if (message[0] === "+") {
-    	switch (message) {
+    	switch (message.split(" ")[0]) {
 			case "+me":
 				bot.sendMessage(DogeTipGroupID, bot.users[chatterID].playerName);
 				bot.sendMessage(DogeTipGroupID, chatterID);
@@ -163,6 +169,21 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 						].join("\n");
 					bot.sendMessage(DogeTipGroupID, statsMessage);
 				});
+				break;
+			case "+prices":
+			case "+price":
+				var priceMessage: string[] = [
+					"Exchange rates as of " + new Date(prices.LastUpdated).toString() + ":",
+					"BTC/USD: $" + prices["BTC/USD"].toFixed(2) + " (Coinbase)",
+					"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (Cryptsy)",
+					"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8)
+				];
+				if (message.split(" ")[1]) {
+					var amount: number = numeral().unformat(message.split(" ")[1]);
+					var amountUSD: number = amount * prices["DOGE/USD"];
+					priceMessage.push(amount + " DOGE = " + numeral(amountUSD).format("$0,0.00"));
+				}
+				bot.sendMessage(DogeTipGroupID, priceMessage.join("\n"));
 				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands on the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
