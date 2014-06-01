@@ -216,7 +216,8 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					var userEntry = {
 						"id": chatterID,
 						"name": name,
-						"address": address
+						"address": address,
+						"favorites": {}
 					};
 					Collections.Users.insert(userEntry, {w:1}, function(err: Error) {
 						if (err) {
@@ -581,10 +582,11 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					}
 					var personToTipID: string = undefined;
 					var unregisteredUser: boolean = false;
+					var usedURL: boolean = false;
 					if ((/^https?:\/\/steamcommunity\.com\/(?:id|profiles)\/.*$/i).exec(personToTipName)) {
 						var communityURL: string = personToTipName;
-						unregisteredUser = true;
 						communityURL += "?xml=1"; // Get Steam to return an XML description
+						usedURL = true;
 
 						getHTTPPage(communityURL, function(err: Error, content: string): void {
 							if (err) {
@@ -600,37 +602,61 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								bot.sendMessage(chatterID, "Make sure that you go to the person you want to tip's profile page and right click > Copy Page URL.");
 								return;
 							}
-							// Check the Steam ID against the blacklist
-							Collections.Blacklist.findOne({"id": personToTipID}, function(err: Error, blacklistedUser) {
+							Collections.Users.findOne({"id": personToTipID}, function(err: Error, personToTip): void {
 								if (err) {
-									bot.sendMessage(chatterID, reportError(err, "Checking user against blacklist"));
+									bot.sendMessage(chatterID, reportError(err, "Checking if the tippee is registered"));
 									return;
 								}
-								if (blacklistedUser) {
-									bot.sendMessage(chatterID, personToTipName + " has requested to be left alone by the bot. Please contact RazeTheRoof if this is somehow in error.");
-									return;
-								}
-								// Send them a friend request and add them to the db
-								bot.addFriend(personToTipID);
-								dogecoin.getNewAddress(personToTipID, function(err: Error, address: string) {
-									if (err) {
-										bot.sendMessage(chatterID, reportError(err, "Generating address for autoregistered user"));
-										return;
+								if (personToTip) {
+									unregisteredUser = false;
+									if (!(/\+nosave/i.test(message))) {
+										// Update the tipper's db entry to include their new favorite
+										user.favorites[personToTipName] = personToTipID;
+										Collections.Users.update({"id": chatterID}, {$set: {"favorites": user.favorites}}, {w:1}, function(err: Error): void {
+											if (err) {
+												bot.sendMessage(chatterID, reportError(err, "Setting user's favorites"));
+												return;
+											}
+											continueWithTip();
+										});
 									}
-									Collections.Users.insert({
-										"id": personToTipID,
-										"name": personToTipName,
-										"address": address,
-										"favorites": {},
-										"autoregistered": true
-									}, {w:1}, function(err: Error) {
+									continueWithTip();
+								}
+								else {
+									unregisteredUser = true;
+									// Check the Steam ID against the blacklist
+									Collections.Blacklist.findOne({"id": personToTipID}, function(err: Error, blacklistedUser) {
 										if (err) {
-											bot.sendMessage(chatterID, reportError(err, "Autoregistering user in database"));
+											bot.sendMessage(chatterID, reportError(err, "Checking user against blacklist"));
 											return;
 										}
-										continueWithTip();
+										if (blacklistedUser) {
+											bot.sendMessage(chatterID, personToTipName + " has requested to be left alone by the bot. Please contact RazeTheRoof if this is somehow in error.");
+											return;
+										}
+										// Send them a friend request and add them to the db
+										bot.addFriend(personToTipID);
+										dogecoin.getNewAddress(personToTipID, function(err: Error, address: string) {
+											if (err) {
+												bot.sendMessage(chatterID, reportError(err, "Generating address for autoregistered user"));
+												return;
+											}
+											Collections.Users.insert({
+												"id": personToTipID,
+												"name": personToTipName,
+												"address": address,
+												"favorites": {},
+												"autoregistered": true
+											}, {w:1}, function(err: Error) {
+												if (err) {
+													bot.sendMessage(chatterID, reportError(err, "Autoregistering user in database"));
+													return;
+												}
+												continueWithTip();
+											});
+										});
 									});
-								});
+								}
 							});
 						});
 					}
@@ -643,6 +669,11 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								bot.sendMessage(chatterID, reportError(err, "Retrieving users for +tip"));
 								return;
 							}
+							// Check favorites list
+							if (!usedURL && user.favorites[personToTipName] && possibleUsers.length > 1) {
+								personToTipID = user.favorites[personToTipName];
+								bot.sendMessage(chatterID, "Tip sent to " + personToTipName + " <http://steamcommunity.com/profiles/" + personToTipID + "> from your favorites list because there is more than one user with that nickname");
+							}
 							if (personToTipID === undefined) {
 								if (possibleUsers.length < 1) {
 									bot.sendMessage(chatterID, "I can't find any users with that nickname!");
@@ -654,7 +685,12 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 									return;
 								}
 								if (possibleUsers.length > 1) {
-									bot.sendMessage(chatterID, "There are multiple users with that nickname!");
+									bot.sendMessage(chatterID, "There are " + possibleUsers.length + " users with that nickname!");
+									bot.sendMessage(chatterID, "To tip the right one, find their community URL by visiting their profile page and right clicking > Copy Page URL.");
+									bot.sendMessage(chatterID, "Then, tip with '+tip <COMMUNITY URL> <AMOUNT> doge'");
+									bot.sendMessage(chatterID, "For example, '+tip http://steamcommunity.com/id/razed/ 100 doge +verify'");
+									bot.sendMessage(chatterID, "That user will be automatically linked to that nickname for you so can use their nickname to tip them in the future.");
+									bot.sendMessage(chatterID, "If you would not like them to be linked to that nickname for you, include '+nosave' at the end of the tip.");
 									return;
 								}
 								personToTipID = possibleUsers[0].id;
@@ -702,7 +738,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 										bot.sendMessage(personToTipID, "You were tipped " + amount + " DOGE by " + user.name);
 									}
 									else {
-										bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully. If they do not accept the tip within " + purgeTime + " hours, the tip will be refunded to you.");
+										bot.sendMessage(chatterID, "You tipped " + personToTipName + " " + amount + " DOGE successfully. If they do not accept the tip within " + purgeTime + " hours, the tip will be refunded back to you.");
 									}
 								});
 							});
