@@ -38,6 +38,7 @@ dogecoin.auth(credentials.rpc.username, credentials.rpc.password);
 var DogeTipGroupID: string = "103582791435182182";
 var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
 var purgeTime: number = 6; // Hours until tips to nonregistered users are refunded
+var version = "v2.0.0";
 
 MongoClient.connect("mongodb://localhost:27017/dogebot", function(err: any, db: mongodb.Db) {
 if (err)
@@ -464,7 +465,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 			bot.sendMessage(chatterID, helpMessage);
 			break;
 		case "+version":
-			bot.sendMessage(chatterID, "DogeTippingBot v2.0.0 by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>\nDonate to D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b if you enjoy this bot and want keep it running. Servers cost money!");
+			bot.sendMessage(chatterID, "DogeTippingBot " + version + " by Ryan Petschek (RazeTheRoof) <petschekr@gmail.com>\nDonate to " + donationAddress + " if you enjoy this bot and want keep it running. Servers cost money! (You can also send the bot '+donate <AMOUNT> doge' to donate from your tipping balance.)");
 			break;
 		case "+donate":
 			Collections.Users.findOne({"id": chatterID}, function(err: Error, user) {
