@@ -63,6 +63,9 @@ bot.on("loggedOn", function(): void {
 	
 	bot.joinChat(DogeTipGroupID);
 	bot.sendMessage(DogeTipGroupID, "dogetippingbot is back online");
+
+	unClaimedTipCheck();
+	setInterval(unClaimedTipCheck, 1000 * 60 * 60); // Check every hour
 });
 
 function getNameFromID(steamID: string): string {
@@ -865,7 +868,7 @@ bot.on("user", function(userInfo): void {
 	});
 });
 // Check for unclaimed tips older than 6 hours
-setInterval(function(): void {
+function unClaimedTipCheck(): void {
 	Collections.Tips.find({unregisteredUser: true, accepted: false, refunded: false}).toArray(function(err: Error, unregisteredUserTips: any[]) {
 		async.each(unregisteredUserTips, function(tip, callback) {
 			var tipTime = tip["_id"].getTimestamp().valueOf();
@@ -894,6 +897,6 @@ setInterval(function(): void {
 			}
 		});
 	});
-}, 60 * 60) // Check every hour
+}
 
 });
