@@ -13,6 +13,7 @@ var dogecoin = require("node-dogecoin")()
 var async = require("async");
 var cheerio = require("cheerio");
 var numeral = require("numeral");
+var requester = require("request");
 
 var credentials: {
 	steam: {
@@ -91,19 +92,13 @@ function reportError(err: any, context: string, justID: boolean = false) {
 	}
 }
 function getHTTPPage(url: string, callback: (err: Error, content: string) => void): void {
-	var moduleToUse = (urllib.parse(url).protocol === "https:") ? https : http;
-	moduleToUse.get(url, function(response) {
-		response.setEncoding("utf8");
-		var content: string = "";
-		response.on("data", function (chunk): void {
-			content += chunk;
-		});
-		response.on("end", function(): void {
-			callback(null, content);
-		});
-	}).on("error", function(err) {
-		err.URL = url;
-		callback(err, null);
+	requester(url, function (err, response, body) {
+		if (err) {
+			err.URL = url;
+			callback(err, null);
+			return;
+		}
+		callback(null, body);
 	});
 }
 var prices = {
