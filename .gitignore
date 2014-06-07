@@ -1,3 +1,5 @@
 example.js
-auth.coffee
+auth.json
 package.json
+
+node_modules
