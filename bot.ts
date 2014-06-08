@@ -467,12 +467,13 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					"	+balance - Check the amount of DOGE in your account",
 					"	+history - Display your current balance and a list of your 10 most recent transactions",
 					"	+withdraw <ADDRESS> <AMOUNT|all> doge - Withdraw funds in your account to the specified address (the 1 DOGE transaction fee will be covered by the bot)",
-					"	+tip <STEAM NAME|#STEAMIDNUMBER> <AMOUNT|all> doge [+verify] - Send a Steam user a tip. Currently, this will fail if they haven't registered with the bot. If +verify is added, the bot will send a message confirming the tip to the group chat.",
+					"	+tip <STEAM NAME|COMMUNITY URL> <AMOUNT|all> doge [+verify] - Send a Steam user a tip. To send tips to users that aren't registered with the bot, tip to their profile URL. (More details about tipping available at http://steamdogebot.com/ ) If +verify is added, the bot will send a message confirming the tip to the group chat.",
 					"	+donate <AMOUNT|all> doge - Donate doge to the developer to keep the bot alive. The server costs about 17,000 DOGE a month. Any help is greatly appreciated!",
 					"	+version - Current bot version",
 					"	+help - This help dialog",
 					"",
 					"Find a bug? Want a feature? File an issue at https://github.com/petschekr/SteamDogeTipBot/issues or submit a pull request",
+					"Check out our website at http://steamdogebot.com/ for more information",
 					"Need anything else? Email me at <petschekr@gmail.com>"
 				].join("\n");
 			bot.sendMessage(chatterID, helpMessage);
