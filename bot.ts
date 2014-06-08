@@ -39,7 +39,7 @@ dogecoin.auth(credentials.rpc.username, credentials.rpc.password);
 var DogeTipGroupID: string = "103582791435182182";
 var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
 var purgeTime: number = 6; // Hours until tips to nonregistered users are refunded
-var version = "v2.0.0";
+var version = "v2.0.1";
 
 MongoClient.connect("mongodb://localhost:27017/dogebot", function(err: any, db: mongodb.Db) {
 if (err)
@@ -404,9 +404,9 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						sendAmount = balance;
 					}
 					else {
-						sendAmount = parseFloat(rawAmount);
+						sendAmount = numeral().unformat(rawAmount);
 					}
-					if (isNaN(sendAmount) || sendAmount < 1) {
+					if (sendAmount < 1) {
 						bot.sendMessage(chatterID, "Invalid amount of DOGE to withdraw");
 						return;
 					}
@@ -423,7 +423,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								bot.sendMessage(chatterID, "Sorry, the server doesn't have enough funds currently to complete that request. Most of the server's funds are kept offline in cold wallets to increase security. This bot's maintainer (RazeTheRoof) has been notified of the server's insufficient balance. He will fix this shortly. If this problem persists, please don't hesitate to email him at <petschekr@gmail.com>.");
 							}
 							else if (err.code === -6) {
-								bot.sendMessage(chatterID, "You have insufficient funds to withdraw that much DOGE");
+								bot.sendMessage(chatterID, "You have insufficient funds to withdraw " + sendAmount + " DOGE");
 								bot.sendMessage(chatterID, "Your current balance is: " + balance + " DOGE");
 							}
 							else {
@@ -507,9 +507,9 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						donationAmount = balance;
 					}
 					else {
-						donationAmount = parseFloat(rawDonationAmount);
+						donationAmount = numeral().unformat(rawDonationAmount);
 					}
-					if (isNaN(donationAmount) || donationAmount < 1) {
+					if (donationAmount < 1) {
 						bot.sendMessage(chatterID, "Invalid amount of DOGE to donate");
 						return;
 					}
@@ -521,7 +521,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								bot.sendMessage(chatterID, "Sorry, the server doesn't have enough funds currently to complete that request. Most of the server's funds are kept offline in cold wallets to increase security. This bot's maintainer (RazeTheRoof) has been notified of the server's insufficient balance. He will fix this shortly. If this problem persists, please don't hesitate to email him at <petschekr@gmail.com>.");
 							}
 							else if (err.code === -6) {
-								bot.sendMessage(chatterID, "You have insufficient funds to donate that much DOGE");
+								bot.sendMessage(chatterID, "You have insufficient funds to donate " + donationAmount + " DOGE");
 								bot.sendMessage(chatterID, "Your current balance is: " + balance + " DOGE");
 							}
 							else {
@@ -586,14 +586,14 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						amount = balance;
 					}
 					else {
-						amount = parseFloat(rawAmount);
-						if (isNaN(amount)) {
+						amount = numeral().unformat(rawAmount);
+						if (amount === 0) {
 							bot.sendMessage(chatterID, "Invalid DOGE amount to tip entered");
 							return;
 						}
 					}
 					if (amount > balance) {
-						bot.sendMessage(chatterID, "Insufficient funds to tip that much DOGE");
+						bot.sendMessage(chatterID, "Insufficient funds to tip " + amount + " DOGE");
 						bot.sendMessage(chatterID, "You can deposit more DOGE to your deposit address: " + user.address);
 						return;
 					}
