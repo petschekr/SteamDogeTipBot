@@ -122,8 +122,13 @@ function getPrices(): void {
 			reportError(err, "Getting current prices");
 			return;
 		}
-		prices["BTC/USD"] = parseFloat(JSON.parse(results[0])["btc_to_usd"]);
-		prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1]).return.markets.DOGE.lasttradeprice);
+		try {
+			prices["BTC/USD"] = parseFloat(JSON.parse(results[0])["btc_to_usd"]);
+			prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1]).return.markets.DOGE.lasttradeprice);
+		}
+		catch(e) {
+			return;
+		}
 		prices["DOGE/USD"] = prices["BTC/USD"] * prices["DOGE/BTC"];
 		// Return to strings with .toFixed(8)
 		prices.LastUpdated = Date.now();
