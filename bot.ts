@@ -49,11 +49,13 @@ var Collections: {
 	Tips: mongodb.Collection;
 	Blacklist: mongodb.Collection;
 	Errors: mongodb.Collection;
+	OldUsers: mongodb.Collection;
 } = {
 	Users: db.collection("users"),
 	Tips: db.collection("tips"),
 	Blacklist: db.collection("blacklist"),
 	Errors: db.collection("errors"),
+	OldUsers: db.collection("oldusers")
 };
 
 var bot = new Steam.SteamClient();
@@ -231,6 +233,29 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						bot.sendMessage(chatterID, "Your deposit address is: " + address);
 						bot.sendMessage(chatterID, "Tip users with '+tip <STEAM NAME> <AMOUNT> doge'");
 						bot.sendMessage(chatterID, "If you need help, reply with '+help'");
+						// Check if they are an old user
+						Collections.OldUsers.findOne({"id": chatterID}, function(err: Error, oldUser) {
+							if (err) {
+								bot.sendMessage(chatterID, reportError(err, "Checking for old user"));
+								return;
+							}
+							if (oldUser && oldUser.funds > 0) {
+								// Move their funds to their account for them
+								var tipComment = {
+									"sender": "dogetippingbot (v1)",
+									"recipient": name,
+									"refund": false,
+									"USD": oldUser.funds * prices["DOGE/USD"]
+								};
+								dogecoin.move("OldUsersPool", chatterID, oldUser.funds, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+									if (err) {
+										bot.sendMessage(chatterID, reportError(err, "Moving balance for old user"));
+										return;
+									}
+									bot.sendMessage(chatterID, "Hey " + name + ", " + oldUser.funds + " DOGE has been added to your account from your v1 wallet.");
+								});
+							}
+						});
 						// Check for giveaway
 						var giveawayInfo = JSON.parse(fs.readFileSync("giveaway.json", {"encoding": "utf8"}));
 						if (giveawayInfo.happening) {
@@ -243,7 +268,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							};
 							dogecoin.move(giveawayInfo.account, chatterID, amountToGive, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
 								if (err) {
-									bot.sendMessage(reportError(err, "Moving balance for a giveaway"));
+									bot.sendMessage(chatterID, reportError(err, "Moving balance for a giveaway"));
 									return;
 								}
 								bot.sendMessage(chatterID, "As part of the current giveaway, you've been given " + amountToGive + " DOGE! You can use that DOGE to tip others on Steam and help spread the word!");
