@@ -781,6 +781,10 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							};
 							dogecoin.move(chatterID, personToTipID, amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
 								if (err) {
+									err.chatterID = chatterID;
+									err.personToTipID = personToTipID;
+									err.amount = amount;
+									err.comment = tipComment;
 									bot.sendMessage(chatterID, reportError(err, "Moving funds while tipping"));
 									return;
 								}
