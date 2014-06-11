@@ -695,7 +695,9 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 											continueWithTip();
 										});
 									}
-									continueWithTip();
+									else {
+										continueWithTip();
+									}
 								}
 								else {
 									unregisteredUser = true;
