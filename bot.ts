@@ -47,12 +47,14 @@ if (err)
 var Collections: {
 	Users: mongodb.Collection;
 	Tips: mongodb.Collection;
+	Donations: mongodb.Collection;
 	Blacklist: mongodb.Collection;
 	Errors: mongodb.Collection;
 	OldUsers: mongodb.Collection;
 } = {
 	Users: db.collection("users"),
 	Tips: db.collection("tips"),
+	Donations: db.collection("donations"),
 	Blacklist: db.collection("blacklist"),
 	Errors: db.collection("errors"),
 	OldUsers: db.collection("oldusers")
@@ -560,6 +562,24 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							return;
 						}
 						bot.sendMessage(chatterID, "Your donation of " + donationAmount + " DOGE was successfully donated. (Donation address: " + donationAddress + ")\nTxID for this donation is: " + txid + "\nThank you very much for your support of this project.");
+						// Record the donation in the database
+						Collections.Donations.insert({
+							"sender": {
+								"name": user.name,
+								"id": chatterID
+							},
+							"amount": donationAmount,
+							"USD": donationAmount * prices["DOGE/USD"],
+							"timestamp": Date.now(),
+							"time": new Date().toString(),
+							"groupID": DogeTipGroupID,
+						}, {w:1}, function(err): void {
+							if (err) {
+								err.txid = txid;
+								bot.sendMessage(chatterID, reportError(err, "Inserting donation into the database"));
+								return;
+							}
+						});
 						// Reimburse the user for their transaction fee
 						dogecoin.getTransaction(txid, function(err: any, txInfo: any) {
 							if (err) {
