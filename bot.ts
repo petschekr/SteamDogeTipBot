@@ -939,7 +939,8 @@ bot.on("user", function(userInfo): void {
 		if (user.name !== userInfo.playerName) {
 			// If the name was changed, update it in the database
 			Collections.Users.update({"id": userInfo.friendid}, {$set: {"name": userInfo.playerName}}, {w:1}, function(err: Error) {
-				reportError(err, "Changing player's name in user change handler");
+				if (err)
+					reportError(err, "Changing player's name in user change handler");
 			});
 		}
 	});
