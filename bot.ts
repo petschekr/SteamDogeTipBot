@@ -39,7 +39,7 @@ dogecoin.auth(credentials.rpc.username, credentials.rpc.password);
 var DogeTipGroupID: string = "103582791435182182";
 var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
 var purgeTime: number = 6; // Hours until tips to nonregistered users are refunded
-var version = "v2.0.1";
+var version = "v2.0.2";
 
 MongoClient.connect("mongodb://localhost:27017/dogebot", function(err: any, db: mongodb.Db) {
 if (err)
@@ -142,6 +142,11 @@ getPrices();
 // Cryptsy's API is updated every 15 minutes so update every 15 minutes
 setInterval(getPrices, 1000 * 60 * 15);
 
+function stringifyAndEscape(object: any): string {
+	return JSON.stringify(object).replace(/[\u0080-\uFFFF]/g, function(m) {
+		return "\\u" + ("0000" + m.charCodeAt(0).toString(16)).slice(-4);
+	});
+}
 bot.on("chatMsg", function(sourceID: string, message: string, type: number, chatterID: string): void {
 	if (message[0] === "+") {
     	switch (message.split(" ")[0]) {
@@ -249,7 +254,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 									"refund": false,
 									"USD": oldUser.funds * prices["DOGE/USD"]
 								};
-								dogecoin.move("OldUsersPool", chatterID, oldUser.funds, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+								dogecoin.move("OldUsersPool", chatterID, oldUser.funds, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
 									if (err) {
 										bot.sendMessage(chatterID, reportError(err, "Moving balance for old user"));
 										return;
@@ -268,7 +273,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								"refund": false,
 								"USD": amountToGive * prices["DOGE/USD"]
 							};
-							dogecoin.move(giveawayInfo.account, chatterID, amountToGive, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+							dogecoin.move(giveawayInfo.account, chatterID, amountToGive, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
 								if (err) {
 									bot.sendMessage(chatterID, reportError(err, "Moving balance for a giveaway"));
 									return;
@@ -781,7 +786,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 								"refund": false,
 								"USD": amount * prices["DOGE/USD"]
 							};
-							dogecoin.move(chatterID, personToTipID, amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+							dogecoin.move(chatterID, personToTipID, amount, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
 								if (err) {
 									err.chatterID = chatterID;
 									err.personToTipID = personToTipID;
@@ -954,7 +959,7 @@ function unClaimedTipCheck(): void {
 					"refund": true,
 					"USD": tip.amount * prices["DOGE/USD"]
 				};
-				dogecoin.move(tip.recipient.id, tip.sender.id, tip.amount, 1, JSON.stringify(tipComment), function(err: any, success: boolean) {
+				dogecoin.move(tip.recipient.id, tip.sender.id, tip.amount, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
 					if (err) {
 						callback(err);
 						return;
