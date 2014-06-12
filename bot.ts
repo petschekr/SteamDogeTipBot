@@ -189,7 +189,8 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 					"Exchange rates as of " + new Date(prices.LastUpdated).toString() + ":",
 					"BTC/USD: $" + prices["BTC/USD"].toFixed(2) + " (Coinbase)",
 					"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (Cryptsy)",
-					"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8)
+					"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8),
+					"1 DOGE = 1 DOGE"
 				];
 				if (message.split(" ")[1]) {
 					var amount: number = numeral().unformat(message.split(" ")[1]);
