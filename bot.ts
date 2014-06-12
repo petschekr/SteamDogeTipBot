@@ -147,60 +147,74 @@ function stringifyAndEscape(object: any): string {
 		return "\\u" + ("0000" + m.charCodeAt(0).toString(16)).slice(-4);
 	});
 }
+
+function meCommand(chatterID: string, message: string, group: boolean = true) {
+	var toSend: string = (group) ? DogeTipGroupID : chatterID;
+	bot.sendMessage(toSend, bot.users[chatterID].playerName);
+	bot.sendMessage(toSend, chatterID);
+}
+function statsCommand(chatterID: string, message: string, group: boolean = true) {
+	var toSend: string = (group) ? DogeTipGroupID : chatterID;
+	async.parallel([
+		function(callback) {
+			Collections.Users.find().toArray(callback);
+		},
+		function(callback) {
+			Collections.Tips.find({"accepted": true}).toArray(callback);
+		}
+	], function(err: Error, results: any[]): void {
+		if (err) {
+			bot.sendMessage(toSend, reportError(err, "Retrieving stats for +stats"));
+			return;
+		}
+		var users: any = results[0];
+		var tips: any = results[1];
+		var totalAmount: number = 0;
+		for (var i: number = 0; i < tips.length; i++) {
+			totalAmount += tips[i].amount;
+		}
+		var statsMessage: string = 
+			[
+				"Stats current as of " + new Date().toString(),
+				"Registered users: " + users.length,
+				"Total tips: " + tips.length,
+				"Total tip volume: " + totalAmount + " DOGE"
+			].join("\n");
+		bot.sendMessage(toSend, statsMessage);
+	});
+}
+function priceCommand(chatterID: string, message: string, group: boolean = true) {
+	var toSend: string = (group) ? DogeTipGroupID : chatterID;
+	var priceMessage: string[] = [
+		"Exchange rates as of " + new Date(prices.LastUpdated).toString() + ":",
+		"BTC/USD: $" + prices["BTC/USD"].toFixed(2) + " (Coinbase)",
+		"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (Cryptsy)",
+		"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8),
+		"1 DOGE = 1 DOGE"
+	];
+	if (message.split(" ")[1]) {
+		var amount: number = numeral().unformat(message.split(" ")[1]);
+		var amountUSD: number = amount * prices["DOGE/USD"];
+		priceMessage.push(amount + " DOGE = " + numeral(amountUSD).format("$0,0.00"));
+	}
+	bot.sendMessage(toSend, priceMessage.join("\n"));
+}
+
 bot.on("chatMsg", function(sourceID: string, message: string, type: number, chatterID: string): void {
 	if (message[0] === "+") {
     	switch (message.split(" ")[0]) {
 			case "+me":
-				bot.sendMessage(DogeTipGroupID, bot.users[chatterID].playerName);
-				bot.sendMessage(DogeTipGroupID, chatterID);
+				meCommand(chatterID, message);
 				break;
 			case "+stats":
-				async.parallel([
-					function(callback) {
-						Collections.Users.find().toArray(callback);
-					},
-					function(callback) {
-						Collections.Tips.find({"accepted": true}).toArray(callback);
-					}
-				], function(err: Error, results: any[]): void {
-					if (err) {
-						bot.sendMessage(DogeTipGroupID, reportError(err, "Retrieving stats for +stats"));
-						return;
-					}
-					var users: any = results[0];
-					var tips: any = results[1];
-					var totalAmount: number = 0;
-					for (var i: number = 0; i < tips.length; i++) {
-						totalAmount += tips[i].amount;
-					}
-					var statsMessage: string = 
-						[
-							"Stats current as of " + new Date().toString(),
-							"Registered users: " + users.length,
-							"Total tips: " + tips.length,
-							"Total tip volume: " + totalAmount + " DOGE"
-						].join("\n");
-					bot.sendMessage(DogeTipGroupID, statsMessage);
-				});
+				statsCommand(chatterID, message);
 				break;
 			case "+prices":
 			case "+price":
-				var priceMessage: string[] = [
-					"Exchange rates as of " + new Date(prices.LastUpdated).toString() + ":",
-					"BTC/USD: $" + prices["BTC/USD"].toFixed(2) + " (Coinbase)",
-					"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (Cryptsy)",
-					"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8),
-					"1 DOGE = 1 DOGE"
-				];
-				if (message.split(" ")[1]) {
-					var amount: number = numeral().unformat(message.split(" ")[1]);
-					var amountUSD: number = amount * prices["DOGE/USD"];
-					priceMessage.push(amount + " DOGE = " + numeral(amountUSD).format("$0,0.00"));
-				}
-				bot.sendMessage(DogeTipGroupID, priceMessage.join("\n"));
+				priceCommand(chatterID, message);
 				break;
 			default:
-				bot.sendMessage(DogeTipGroupID, "I won't respond to commands on the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
+				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
     	}
   	}
 });
@@ -885,6 +899,17 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 				bot.sendMessage(chatterID, "I'm sorry for disturbing you, " + tip.recipient.name + ". Your tip has been rejected, you have been unfriended, and you will not be bothered ever again by me.");
 				bot.sendMessage(chatterID, "If this was in error, please contact RazeTheRoof <petschekr@gmail.com> and he can remove you from the blacklist.");
 			});
+			break;
+		// Extra commands
+		case "+me":
+				meCommand(chatterID, message, false);
+				break;
+		case "+stats":
+			statsCommand(chatterID, message, false);
+			break;
+		case "+prices":
+		case "+price":
+			priceCommand(chatterID, message, false);
 			break;
 		default:
 			bot.sendMessage(chatterID, "I couldn't understand your request. Reply with '+help' for a list of available commands and functions.");
