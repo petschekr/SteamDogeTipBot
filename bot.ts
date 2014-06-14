@@ -891,7 +891,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 				}
 				async.parallel([
 					function(callback) {
-						Collections.Tips.update({"_id": tip["_id"]}, {$set: {accepted: true}}, callback);
+						Collections.Tips.update({"_id": tip["_id"]}, {$set: {accepted: true}}, {multi: true}, callback);
 					},
 					function(callback) {
 						// Delete the autoregistered attribute because that user is now fully registered
