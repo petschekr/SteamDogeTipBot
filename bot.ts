@@ -671,10 +671,6 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						bot.sendMessage(chatterID, "You must tip at least 1 DOGE");
 						return;
 					}
-					if (personToTipName.toLowerCase() === "dogetippingbot") {
-						bot.sendMessage(chatterID, "I'm sorry, but you can't tip me. If you would like to donate, please reply with '+donate <AMOUNT> doge'. Thank you!");
-						return;
-					}
 					var personToTipID: string = undefined;
 					var unregisteredUser: boolean = false;
 					var usedURL: boolean = false;
@@ -794,6 +790,10 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							}
 							if (personToTipID === chatterID) {
 								bot.sendMessage(chatterID, "wow. such self tip.");
+							}
+							if (personToTipID === bot.steamID) {
+								bot.sendMessage(chatterID, "I'm sorry, but you can't tip me. If you would like to donate, please reply with '+donate <AMOUNT> doge'. Thank you!");
+								return;
 							}
 							var tipComment = {
 								"sender": user.name,
