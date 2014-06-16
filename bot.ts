@@ -290,13 +290,14 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 								bot.sendMessage(DogeTipGroupID, reportError(err, "Inserting new competition in +newmatch"));
 								return;
 							}
-							bot.sendMessage(DogeTipGroupID, "Gaming competition for the game \"" + matchGame + "\" with " + matchPlayers + " players and a " + matchAmount + " entrance fee has been started! Respond with +joinmatch to enter.");
+							bot.sendMessage(DogeTipGroupID, "Gaming competition for the game \"" + matchGame + "\" with " + matchPlayers + " players and a " + matchAmount + " DOGE entrance fee has been started! Respond with +joinmatch to enter.");
 						});
 					});
 				});
 				break;
 			case "+joinmatch":
 				bot.sendMessage(DogeTipGroupID, "Not implemented yet!");
+				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
     	}
