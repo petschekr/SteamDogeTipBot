@@ -118,8 +118,8 @@ function getPrices(): void {
 			getHTTPPage("https://coinbase.com/api/v1/currencies/exchange_rates", callback);
 		},
 		function(callback) {
-			// Cryptsy DOGE/BTC price
-			getHTTPPage("http://pubapi.cryptsy.com/api.php?method=singlemarketdata&marketid=132", callback);
+			// Mintpal DOGE/BTC price
+			getHTTPPage("https://api.mintpal.com/v1/market/stats/DOGE/BTC", callback);
 		}
 	], function(err: Error, results: any[]): void {
 		if (err) {
@@ -128,7 +128,7 @@ function getPrices(): void {
 		}
 		try {
 			prices["BTC/USD"] = parseFloat(JSON.parse(results[0])["btc_to_usd"]);
-			prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1]).return.markets.DOGE.lasttradeprice);
+			prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1])[0].last_price);
 		}
 		catch(e) {
 			return;
@@ -139,8 +139,8 @@ function getPrices(): void {
 	});
 }
 getPrices();
-// Cryptsy's API is updated every 15 minutes so update every 15 minutes
-setInterval(getPrices, 1000 * 60 * 15);
+// Both API's are updated every minute so update every 5 minutes
+setInterval(getPrices, 1000 * 60 * 5);
 
 function stringifyAndEscape(object: any): string {
 	return JSON.stringify(object).replace(/[\u0080-\uFFFF]/g, function(m) {
@@ -188,7 +188,7 @@ function priceCommand(chatterID: string, message: string, group: boolean = true)
 	var priceMessage: string[] = [
 		"Exchange rates as of " + new Date(prices.LastUpdated).toString() + ":",
 		"BTC/USD: $" + prices["BTC/USD"].toFixed(2) + " (Coinbase)",
-		"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (Cryptsy)",
+		"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (MintPal)",
 		"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8),
 		"1 DOGE = 1 DOGE"
 	];
