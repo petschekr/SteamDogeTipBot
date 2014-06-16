@@ -240,7 +240,7 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 			case "+price":
 				priceCommand(chatterID, message);
 				break;
-				// Game competition commands
+			// Game competition commands
 			case "+newmatch":
 			case "+creatematch":
 				// Only allow certain whitelisted members to do this
@@ -255,6 +255,10 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 					}
 					// Syntax is +newmatch 10 players 5 doge Counter Strike: Global Offensive
 					var newmatchParser: RegExp = /\+(?:newmatch|creatematch) (\d+) players ([\d\.]+) doge (.+)/;
+					if (!newmatchParser.exec(message)) {
+						bot.sendMessage(DogeTipGroupID, "Invalid +newmatch format. Format is: +newmatch 10 players 10 doge Game Title");
+						return;
+					}
 					var matchPlayers: number = parseInt(newmatchParser.exec(message)[1], 10);
 					var matchAmount: number = parseFloat(newmatchParser.exec(message)[2]);
 					var matchGame: string = newmatchParser.exec(message)[3];
