@@ -51,13 +51,15 @@ var Collections: {
 	Blacklist: mongodb.Collection;
 	Errors: mongodb.Collection;
 	OldUsers: mongodb.Collection;
+	Competitions: mongodb.Collection;
 } = {
 	Users: db.collection("users"),
 	Tips: db.collection("tips"),
 	Donations: db.collection("donations"),
 	Blacklist: db.collection("blacklist"),
 	Errors: db.collection("errors"),
-	OldUsers: db.collection("oldusers")
+	OldUsers: db.collection("oldusers"),
+	Competitions: db.collection("competitions")
 };
 
 var bot = new Steam.SteamClient();
@@ -213,6 +215,63 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 			case "+price":
 				priceCommand(chatterID, message);
 				break;
+				// Game competition commands
+			case "+newmatch":
+			case "+creatematch":
+				// Only allow certain whitelisted members to do this
+				Collections.Users.findOne({"id": chatterID}, function(err: Error, user): void {
+					if (err) {
+						bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for user in +newmatch"));
+						return;
+					}
+					if (!user || !user.isGameMod) {
+						bot.sendMessage(DogeTipGroupID, "Sorry, you aren't permitted to start matches.");
+						return;
+					}
+					// Syntax is +newmatch 10 players 5 doge Counter Strike: Global Offensive
+					var newmatchParser: RegExp = /\+(?:newmatch|creatematch) (\d+) players ([\d\.]+) doge (.+)/;
+					var matchPlayers: number = parseInt(newmatchParser.exec(message)[1], 10);
+					var matchAmount: number = parseFloat(newmatchParser.exec(message)[2]);
+					var matchGame: string = newmatchParser.exec(message)[3];
+					Collections.Competitions.findOne({"finished": false}, function(err: Error, previousCompetition): void {
+						if (err) {
+							bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for previous competitions in +newmatch"));
+							return;
+						}
+						if (previousCompetition) {
+							bot.sendMessage(DogeTipGroupID, "Sorry, there's already an ongoing competition");
+							return;
+						}
+						Collections.Competitions.insert({
+							"game": matchGame,
+							"fee": matchAmount,
+							"players": matchPlayers,
+							"creationTime": {
+								"timestamp": Date.now(),
+								"string": new Date().toString()
+							},
+							"startTime": {
+								"timestamp": null,
+								"string": null
+							},
+							"teams": {
+								"alpha": [],
+								"bravo": []
+							},
+							"finished": false,
+							"canceled": false
+						}, {w:1}, function(err: Error): void {
+							if (err) {
+								bot.sendMessage(DogeTipGroupID, reportError(err, "Inserting new competition in +newmatch"));
+								return;
+							}
+							bot.sendMessage(DogeTipGroupID, "Gaming competition for the game \"" + matchGame + "\" with " + matchPlayers + " players and a " + matchAmount + " entrance fee has been started! Respond with +joinmatch to enter.");
+						});
+					});
+				});
+				break;
+			case "+joinmatch":
+				bot.sendMessage(DogeTipGroupID, "Not implemented yet!");
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
     	}
