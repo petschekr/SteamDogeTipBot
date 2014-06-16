@@ -279,9 +279,15 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 								"timestamp": Date.now(),
 								"string": new Date().toString()
 							},
-							"startTime": {
-								"timestamp": null,
-								"string": null
+							"times": {
+								"start": {
+									"timestamp": null,
+									"string": null
+								},
+								"end": {
+									"timestamp": null,
+									"string": null
+								}
 							},
 							"teams": {
 								"alpha": [],
