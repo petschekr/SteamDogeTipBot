@@ -70,7 +70,7 @@ bot.on("loggedOn", function(): void {
 	console.log("SteamID: " + bot.steamID);
 	
 	bot.joinChat(DogeTipGroupID);
-	bot.sendMessage(DogeTipGroupID, "dogetippingbot is back online");
+	//bot.sendMessage(DogeTipGroupID, "dogetippingbot is back online");
 
 	unClaimedTipCheck();
 	setInterval(unClaimedTipCheck, 1000 * 60 * 60); // Check every hour
@@ -120,8 +120,8 @@ function getPrices(): void {
 			getHTTPPage("https://coinbase.com/api/v1/currencies/exchange_rates", callback);
 		},
 		function(callback) {
-			// Cryptsy DOGE/BTC price
-			getHTTPPage("http://pubapi.cryptsy.com/api.php?method=singlemarketdata&marketid=132", callback);
+			// Mintpal DOGE/BTC price
+			getHTTPPage("https://api.mintpal.com/v1/market/stats/DOGE/BTC", callback);
 		}
 	], function(err: Error, results: any[]): void {
 		if (err) {
@@ -130,7 +130,7 @@ function getPrices(): void {
 		}
 		try {
 			prices["BTC/USD"] = parseFloat(JSON.parse(results[0])["btc_to_usd"]);
-			prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1]).return.markets.DOGE.lasttradeprice);
+			prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1])[0].last_price);
 		}
 		catch(e) {
 			return;
@@ -141,8 +141,8 @@ function getPrices(): void {
 	});
 }
 getPrices();
-// Cryptsy's API is updated every 15 minutes so update every 15 minutes
-setInterval(getPrices, 1000 * 60 * 15);
+// Both API's are updated every minute so update every 5 minutes
+setInterval(getPrices, 1000 * 60 * 5);
 
 function stringifyAndEscape(object: any): string {
 	return JSON.stringify(object).replace(/[\u0080-\uFFFF]/g, function(m) {
@@ -190,7 +190,7 @@ function priceCommand(chatterID: string, message: string, group: boolean = true)
 	var priceMessage: string[] = [
 		"Exchange rates as of " + new Date(prices.LastUpdated).toString() + ":",
 		"BTC/USD: $" + prices["BTC/USD"].toFixed(2) + " (Coinbase)",
-		"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (Cryptsy)",
+		"DOGE/BTC: " + prices["DOGE/BTC"].toFixed(8) + " BTC (MintPal)",
 		"DOGE/USD: $" + prices["DOGE/USD"].toFixed(8),
 		"1 DOGE = 1 DOGE"
 	];
@@ -200,6 +200,31 @@ function priceCommand(chatterID: string, message: string, group: boolean = true)
 		priceMessage.push(amount + " DOGE = " + numeral(amountUSD).format("$0,0.00"));
 	}
 	bot.sendMessage(toSend, priceMessage.join("\n"));
+}
+function inviteToGroup(invitee) {
+	bot.webLogOn(function(steamCookies: string[]): void {
+		var j = requester.jar();
+		j.setCookie(requester.cookie(steamCookies[0]), "http://steamcommunity.com");
+		j.setCookie(requester.cookie(steamCookies[1]), "http://steamcommunity.com");
+		requester.post({url: "http://steamcommunity.com/actions/GroupInvite", jar: j, form: {
+			"type": "groupInvite",
+			"inviter": bot.steamID,
+			"invitee": invitee,
+			"group": DogeTipGroupID, // Dogecoin group
+			"sessionID": (/sessionid=(.*)/).exec(steamCookies[0])[1]
+		}}, function (err, httpResponse, body) {
+			Collections.Errors.insert({
+				"timestamp": Date.now(),
+				"time": new Date().toString(),
+				"type": "Invite Response",
+				"info": {
+					err: err,
+					httpResponse: httpResponse,
+					body: body
+				}
+			}, {w:0}, undefined);
+		});
+	});
 }
 
 bot.on("chatMsg", function(sourceID: string, message: string, type: number, chatterID: string): void {
@@ -701,7 +726,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					var tipInfo: any = message.split(" ");
 					tipInfo.shift(); // Remove first element (the "+tip" command)
 					tipInfo = tipInfo.join(" ");
-					tipInfo = (/(.+?) ([\d\.]*)/i).exec(tipInfo) // Handle names with spaces
+					tipInfo = (/(.+?) ([\d\.]+|all)/i).exec(tipInfo) // Handle names with spaces
 					if (tipInfo) {
 						var personToTipName = tipInfo[1];
 						var rawAmount: string = tipInfo[2];
@@ -728,10 +753,6 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 					}
 					if (amount < 1) {
 						bot.sendMessage(chatterID, "You must tip at least 1 DOGE");
-						return;
-					}
-					if (personToTipName.toLowerCase() === "dogetippingbot") {
-						bot.sendMessage(chatterID, "I'm sorry, but you can't tip me. If you would like to donate, please reply with '+donate <AMOUNT> doge'. Thank you!");
 						return;
 					}
 					var personToTipID: string = undefined;
@@ -790,8 +811,9 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 											bot.sendMessage(chatterID, personToTipName + " has requested to be left alone by the bot. Please contact RazeTheRoof if this is somehow in error.");
 											return;
 										}
-										// Send them a friend request and add them to the db
-										bot.addFriend(personToTipID);
+										// Invite them to the group and add them to the db
+										//bot.addFriend(personToTipID);
+										inviteToGroup(personToTipID);
 										dogecoin.getNewAddress(personToTipID, function(err: Error, address: string) {
 											if (err) {
 												bot.sendMessage(chatterID, reportError(err, "Generating address for autoregistered user"));
@@ -853,6 +875,10 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 							}
 							if (personToTipID === chatterID) {
 								bot.sendMessage(chatterID, "wow. such self tip.");
+							}
+							if (personToTipID === bot.steamID) {
+								bot.sendMessage(chatterID, "I'm sorry, but you can't tip me. If you would like to donate, please reply with '+donate <AMOUNT> doge'. Thank you!");
+								return;
 							}
 							var tipComment = {
 								"sender": user.name,
@@ -924,7 +950,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 				}
 				async.parallel([
 					function(callback) {
-						Collections.Tips.update({"_id": tip["_id"]}, {$set: {accepted: true}}, callback);
+						Collections.Tips.update({"_id": tip["_id"]}, {$set: {accepted: true}}, {multi: true}, callback);
 					},
 					function(callback) {
 						// Delete the autoregistered attribute because that user is now fully registered
@@ -935,7 +961,7 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 						bot.sendMessage(chatterID, reportError(err, "async.parallel in +accept"));
 					}
 					bot.sendMessage(chatterID, "Congrats, your tip of " + tip.amount + " DOGE from " + tip.sender.name + " was accepted! Welcome to DogeTippingBot!");
-					bot.sendMessage(chatterID, "I've unfriended you because Steam imposes a limit of 250 friends and I need those to invite others. Join the Doge Tip group (http://steamcommunity.com/groups/DogeTip/) to interact with me. Open up the group chat and double click on my name in the sidebar (with the gold star) to send me commands.");
+					bot.sendMessage(chatterID, "You can open up the group chat and double click on my name in the sidebar (with the gold star) to send me commands in the future.");
 					bot.sendMessage(chatterID, "Send '+help' to see all of the available commands.");
 					bot.sendMessage(chatterID, "If you have any questions or suggestions, please start a discussion within the group. RazeTheRoof <petschekr@gmail.com> is this bot's author so send any hate/love mail his way. Remember to pay your tips forward and have fun on your way to the moon!");
 				});
@@ -987,30 +1013,6 @@ bot.on("friend", function(steamID: string, relationship: number): void {
 			}, 2000);
 		}, 2000);
 	}
-	// Someone accepted the bot's friend request
-	if (relationship === Steam.EFriendRelationship.Friend) {
-		Collections.Users.findOne({"id": steamID}, function(err: Error, user: any) {
-			if (err) {
-				bot.sendMessage(steamID, reportError(err, "Retrieving user in friend accept handler"));
-				return;
-			}
-			Collections.Tips.findOne({"recipient.id": steamID}, function(err: Error, tip: any) {
-				if (err) {
-					bot.sendMessage(steamID, reportError(err, "Retrieving tip in friend accept handler"));
-					return;
-				}
-				if (!user || !tip) {
-					bot.sendMessage(steamID, "Whoops, you don't seem to actually have been tipped! Sorry for disturbing you.");
-					bot.removeFriend(steamID);
-					return;
-				}
-				bot.sendMessage(steamID, "Hello " + tip.recipient.name + ", you've been tipped " + tip.amount + " DOGE by " + tip.sender.name);
-				bot.sendMessage(steamID, "Dogecoin is a revolutionary digital currency sent through the internet. You can find out more at http://dogecoin.com/");
-				bot.sendMessage(steamID, "If you would like to accept this tip, please reply with '+accept'.");
-				bot.sendMessage(steamID, "If you would like to reject this tip and want me to leave you alone, please reply with '+reject'.");
-			});
-		});
-	}
 });
 bot.on("user", function(userInfo): void {
 	Collections.Users.findOne({"id": userInfo.friendid}, function(err: Error, user) {
@@ -1020,6 +1022,7 @@ bot.on("user", function(userInfo): void {
 		}
 		if (!user)
 			return;
+		// Handle user nickname changes
 		if (user.name !== userInfo.playerName) {
 			// If the name was changed, update it in the database
 			Collections.Users.update({"id": userInfo.friendid}, {$set: {"name": userInfo.playerName}}, {w:1}, function(err: Error) {
@@ -1027,6 +1030,19 @@ bot.on("user", function(userInfo): void {
 					reportError(err, "Changing player's name in user change handler");
 			});
 		}
+		// Pending tip recipient stuff
+		Collections.Tips.findOne({"recipient.id": userInfo.friendid, "accepted": false, "refunded": false}, function(err: Error, tip: any) {
+			if (err) {
+				bot.sendMessage(DogeTipGroupID, reportError(err, "Retrieving tip in friend accept handler"));
+				return;
+			}
+			if (!user || !tip)
+				return;
+			bot.sendMessage(userInfo.friendid, "Hello " + tip.recipient.name + ", you've been tipped " + tip.amount + " DOGE by " + tip.sender.name);
+			bot.sendMessage(userInfo.friendid, "Dogecoin is a revolutionary digital currency sent through the internet. You can find out more at http://dogecoin.com/");
+			bot.sendMessage(userInfo.friendid, "If you would like to accept this tip, please reply with '+accept'.");
+			bot.sendMessage(userInfo.friendid, "If you would like to reject this tip and want me to leave you alone, please reply with '+reject'.");
+		});
 	});
 });
 // Check for unclaimed tips older than 6 hours
