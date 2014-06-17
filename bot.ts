@@ -396,6 +396,39 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 					});
 				});
 				break;
+			case "+teams":
+			case "+team":
+				Collections.Competitions.findOne({"finished": false}, function(err: Error, competition): void {
+					if (err) {
+						bot.sendMessage(DogeTipGroupID, reportError(err, "Getting competition in +teams"));
+						return;
+					}
+					if (!competition) {
+						bot.sendMessage(DogeTipGroupID, "Sorry, there isn't an ongoing competition");
+						return;
+					}
+					var teamMessage: string[] = [
+						"Current teams:",
+						"Alpha | Bravo",
+						"=========="
+					];
+					var largestTeam: number = (competition.teams.alpha.length >= competition.teams.bravo.length) ? competition.teams.alpha.length : competition.teams.bravo.length;
+					for (var i: number = 0; i < largestTeam; i++) {
+						var alphaMember = competition.teams.alpha[i];
+						var bravoMember = competition.teams.bravo[i];
+						if (alphaMember === undefined)
+							alphaMember = "N/A";
+						else
+							alphaMember = alphaMember.name;
+						if (bravoMember === undefined)
+							bravoMember = "N/A";
+						else
+							bravoMember = bravoMember.name;
+						teamMessage.push(alphaMember + " | " + bravoMember);
+					}
+					bot.sendMessage(DogeTipGroupID, teamMessage.join("\n"));
+				});
+				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
     	}
