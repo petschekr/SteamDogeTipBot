@@ -321,6 +321,10 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 						bot.sendMessage(DogeTipGroupID, "Sorry, you can't join the current competition because it has already begun");
 						return;
 					}
+					if ((competition.teams.alpha.length + competition.teams.bravo.length) >= competition.players) {
+						bot.sendMessage(DogeTipGroupID, "Sorry, the current competition has the maximum number of players");
+						return;
+					}
 					Collections.Users.findOne({"id": chatterID}, function(err: Error, user): void {
 						if (err) {
 							bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for user in +joinmatch"));
@@ -343,55 +347,87 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 								return;
 							}
 						}
-
-						var team: string;
-						if (competition.teams.alpha.length > competition.teams.bravo.length) {
-							// Place on bravo
-							team = "Bravo";
+						// Deduct the fee from their account
+						if (competition.fee > 0) {
+							// Check if they have enough funds
+							dogecoin.getBalance(chatterID, function(err: Error, balance: number): void {
+								if (err) {
+									bot.sendMessage(DogeTipGroupID, reportError(err, "Retrieving user balance in +joinmatch"));
+									return;
+								}
+								if (balance < competition.fee) {
+									bot.sendMessage(DogeTipGroupID, "Sorry, you don't have enough funds in your wallet to pay the competition fee");
+									return;
+								}
+								var tipComment = {
+									"sender": getNameFromID(chatterID),
+									"recipient": competition.game + " competition",
+									"refund": false,
+									"USD": competition.fee * prices["DOGE/USD"]
+								};
+								dogecoin.move(chatterID, "CompetitionPool", competition.fee, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
+									if (err) {
+										bot.sendMessage(DogeTipGroupID, reportError(err, "Moving balance to pay competition entrance fee"));
+										return;
+									}
+									continueAfterFeePaid();
+								});
+							});
 						}
-						if (competition.teams.alpha.length < competition.teams.bravo.length) {
-							// Place on alpha
-							team = "Alpha";
+						else {
+							continueAfterFeePaid();
 						}
-						if (competition.teams.alpha.length === competition.teams.bravo.length) {
-							// Place randomly
-							team = (Math.random() < 0.5) ? "Alpha" : "Bravo";
-						}
-						var player = {
-							"name": getNameFromID(chatterID),
-							"id": chatterID
-						};
-						if (team === "Alpha") {
-							Collections.Competitions.findAndModify({"finished": false}, undefined, {$push: {"teams.alpha": player}}, {new:true}, continueWithJoinMatch);
-						}
-						if (team === "Bravo") {
-							Collections.Competitions.findAndModify({"finished": false}, undefined, {$push: {"teams.bravo": player}}, {new:true}, continueWithJoinMatch);
-						}
-						function continueWithJoinMatch(err: Error, updatedCompetition): void {
-							if (err) {
-								bot.sendMessage(DogeTipGroupID, reportError(err, "Joining match in +joinmatch"));
-								return;
+						function continueAfterFeePaid(): void {
+							var team: string;
+							if (competition.teams.alpha.length > competition.teams.bravo.length) {
+								// Place on bravo
+								team = "Bravo";
 							}
-							bot.sendMessage(DogeTipGroupID, getNameFromID(chatterID) + " has paid the " + competition.fee + " DOGE entrance fee and been placed on the " + team + " team!");
-							var teamMessage: string[] = [
-								"Current teams:",
-								"Alpha | Bravo"
-							];
-							var largestTeam: number = (updatedCompetition.teams.alpha.length >= updatedCompetition.teams.bravo.length) ? updatedCompetition.teams.alpha.length : updatedCompetition.teams.bravo.length;
-							for (var i: number = 0; i < largestTeam; i++) {
-								var alphaMember = updatedCompetition.teams.alpha[i];
-								var bravoMember = updatedCompetition.teams.bravo[i];
-								if (alphaMember === undefined)
-									alphaMember = "N/A";
-								else
-									alphaMember = alphaMember.name;
-								if (bravoMember === undefined)
-									bravoMember = "N/A";
-								else
-									bravoMember = bravoMember.name;
-								teamMessage.push(alphaMember + " | " + bravoMember);
+							if (competition.teams.alpha.length < competition.teams.bravo.length) {
+								// Place on alpha
+								team = "Alpha";
 							}
-							bot.sendMessage(DogeTipGroupID, teamMessage.join("\n"));
+							if (competition.teams.alpha.length === competition.teams.bravo.length) {
+								// Place randomly
+								team = (Math.random() < 0.5) ? "Alpha" : "Bravo";
+							}
+							var player = {
+								"name": getNameFromID(chatterID),
+								"id": chatterID
+							};
+							if (team === "Alpha") {
+								Collections.Competitions.findAndModify({"finished": false}, undefined, {$push: {"teams.alpha": player}}, {new:true}, continueWithJoinMatch);
+							}
+							if (team === "Bravo") {
+								Collections.Competitions.findAndModify({"finished": false}, undefined, {$push: {"teams.bravo": player}}, {new:true}, continueWithJoinMatch);
+							}
+							function continueWithJoinMatch(err: Error, updatedCompetition): void {
+								if (err) {
+									bot.sendMessage(DogeTipGroupID, reportError(err, "Joining match in +joinmatch"));
+									return;
+								}
+								bot.sendMessage(DogeTipGroupID, getNameFromID(chatterID) + " has paid the " + competition.fee + " DOGE entrance fee and been placed on the " + team + " team!");
+								var teamMessage: string[] = [
+									"Current teams:",
+									"Alpha | Bravo",
+									"=========="
+								];
+								var largestTeam: number = (updatedCompetition.teams.alpha.length >= updatedCompetition.teams.bravo.length) ? updatedCompetition.teams.alpha.length : updatedCompetition.teams.bravo.length;
+								for (var i: number = 0; i < largestTeam; i++) {
+									var alphaMember = updatedCompetition.teams.alpha[i];
+									var bravoMember = updatedCompetition.teams.bravo[i];
+									if (alphaMember === undefined)
+										alphaMember = "N/A";
+									else
+										alphaMember = alphaMember.name;
+									if (bravoMember === undefined)
+										bravoMember = "N/A";
+									else
+										bravoMember = bravoMember.name;
+									teamMessage.push(alphaMember + " | " + bravoMember);
+								}
+								bot.sendMessage(DogeTipGroupID, teamMessage.join("\n"));
+							}
 						}
 					});
 				});
