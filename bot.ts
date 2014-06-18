@@ -254,7 +254,7 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 						return;
 					}
 					// Syntax is +newmatch 10 players 5 doge Counter Strike: Global Offensive
-					var newmatchParser: RegExp = /\+(?:newmatch|creatematch) (\d+) players ([\d\.]+) doge (.+)/;
+					var newmatchParser: RegExp = /\+(?:newmatch|creatematch) (\d+) players ([\d\.]+) doge (.+)/i;
 					if (!newmatchParser.exec(message)) {
 						bot.sendMessage(DogeTipGroupID, "Invalid +newmatch format. Format is: +newmatch 10 players 10 doge Game Title");
 						return;
@@ -470,7 +470,7 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 				// Only allow certain whitelisted members to do this
 				Collections.Users.findOne({"id": chatterID}, function(err: Error, user): void {
 					if (err) {
-						bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for user in +newmatch"));
+						bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for user in +startmatch"));
 						return;
 					}
 					if (!user || !user.isGameMod) {
@@ -520,6 +520,115 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 							}
 							bot.sendMessage(DogeTipGroupID, teamMessage.join("\n"));
 						});
+					});
+				});
+				break;
+			case "+endmatch":
+			case "+finishmatch":
+				// Only allow certain whitelisted members to do this
+				Collections.Users.findOne({"id": chatterID}, function(err: Error, user): void {
+					if (err) {
+						bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for user in +finishmatch"));
+						return;
+					}
+					if (!user || !user.isGameMod) {
+						bot.sendMessage(DogeTipGroupID, "Sorry, you aren't permitted to end matches.");
+						return;
+					}
+					Collections.Competitions.findOne({"finished": false, "started": true}, function(err: Error, competition): void {
+						if (err) {
+							bot.sendMessage(DogeTipGroupID, reportError(err, "Getting current competition in +finishmatch"));
+							return;
+						}
+						if (!competition) {
+							bot.sendMessage(DogeTipGroupID, "Sorry, there isn't an ongoing competition");
+							return;
+						}
+						// Figure out the winner
+						var endmatchParser: RegExp = /\+(?:endmatch|finishmatch) (\d+|alpha|bravo)/i;
+						if (!endmatchParser.exec(message)) {
+							bot.sendMessage(DogeTipGroupID, "Invalid +endmatch format. Format is: +endmatch (SteamID|Alpha|Bravo)");
+							return;
+						}
+						var matchWinner: string = endmatchParser.exec(message)[1];
+						var payAmount: number = competition.fee * (competition.teams.alpha.length + competition.teams.bravo.length);
+						if (matchWinner.toLowerCase() === "alpha") {
+							// Alpha won
+							var alphaIDs: string[] = [];
+							for (var i: number = 0; i < competition.teams.alpha.length; i++) {
+								alphaIDs.push(competition.teams.alpha[i].id);
+							}
+							var payAmountAlpha: number = payAmount / competition.teams.alpha.length;
+							async.each(alphaIDs, function(idToPay, callback) {
+								var tipComment = {
+									"sender": competition.game + " competition",
+									"recipient": getNameFromID(idToPay),
+									"refund": false,
+									"USD": payAmountAlpha * prices["DOGE/USD"]
+								};
+								dogecoin.move("CompetitionPool", idToPay, payAmountAlpha, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
+									callback(err);
+								});
+							}, function(err: Error) {
+								if (err) {
+									bot.sendMessage(DogeTipGroupID, reportError(err, "Moving funds for Alpha team"));
+									return;
+								}
+								bot.sendMessage(DogeTipGroupID, "Congratulations to the winnning Alpha team! Each member has received a " + payAmountAlpha + " DOGE reward!");
+							});
+						}
+						else if (matchWinner.toLowerCase() === "bravo") {
+							// Bravo won
+							var bravoIDs: string[] = [];
+							for (var i: number = 0; i < competition.teams.bravo.length; i++) {
+								bravoIDs.push(competition.teams.bravo[i].id);
+							}
+							var payAmountBravo: number = payAmount / competition.teams.bravo.length;
+							async.each(bravoIDs, function(idToPay, callback) {
+								var tipComment = {
+									"sender": competition.game + " competition",
+									"recipient": getNameFromID(idToPay),
+									"refund": false,
+									"USD": payAmountBravo * prices["DOGE/USD"]
+								};
+								dogecoin.move("CompetitionPool", idToPay, payAmountBravo, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
+									callback(err);
+								});
+							}, function(err: Error) {
+								if (err) {
+									bot.sendMessage(DogeTipGroupID, reportError(err, "Moving funds for Bravo team"));
+									return;
+								}
+								bot.sendMessage(DogeTipGroupID, "Congratulations to the winnning Bravo team! Each member has received a " + payAmountBravo + " DOGE reward!");
+							});
+						}
+						else {
+							// A specific user won (SteamID)
+							Collections.Users.findOne({"id": matchWinner}, function(err: Error, winnningUser): void {
+								if (err) {
+									bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for winnning user in +finishmatch"));
+									return;
+								}
+								if (!user) {
+									bot.sendMessage(DogeTipGroupID, "No user with the SteamID of " + matchWinner + " exists!");
+									return;
+								}
+								var tipComment = {
+									"sender": competition.game + " competition",
+									"recipient": winnningUser.name,
+									"refund": false,
+									"USD": payAmount * prices["DOGE/USD"]
+								};
+								dogecoin.move("CompetitionPool", winnningUser.id, payAmount, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
+									if (err) {
+										bot.sendMessage(DogeTipGroupID, reportError(err, "Moving funds for competition winner " + winnningUser.id));
+										return;
+									}
+									bot.sendMessage(DogeTipGroupID, "Congratulations to " + winnningUser.name + " (" + winnningUser.id + ") for winning the competition and receiving the reward of " + payAmount + " DOGE!");
+								});
+							});
+						}
+						Collections.Competitions.update({"finished": false, "started": true}, {$set: {"finished": true, "winner": matchWinner}}, {w:0}, undefined);
 					});
 				});
 				break;
