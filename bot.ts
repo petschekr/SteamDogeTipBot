@@ -1222,6 +1222,41 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 		case "+price":
 			priceCommand(chatterID, message, false);
 			break;
+		case "+lookup":
+			var identifier = message.split(" ")[1];
+			if ((/\d+/).exec(identifier)) {
+				// Steam ID
+				Collections.Users.findOne({"id": identifier}, function(err, result): void {
+					if (err) {
+						err.identifier = identifier;
+						bot.sendMessage(chatterID, reportError(err, "+lookup with SteamID"));
+						return;
+					}
+					if (!result) {
+						bot.sendMessage(chatterID, "The person with that SteamID hasn't registered yet");
+						return;
+					}
+					bot.sendMessage(chatterID, "ID: " + result.id + ", Name: " + result.name);
+				});
+			}
+			else {
+				// Steam nickname
+				Collections.Users.find({"name": identifier}).toArray(function(err, results): void {
+					if (err) {
+						err.identifier = identifier;
+						bot.sendMessage(chatterID, reportError(err, "+lookup with Steam nickname"));
+						return;
+					}
+					if (!results || results.length === 0) {
+						bot.sendMessage(chatterID, "No people with that nickname have registered yet");
+						return;
+					}
+					for (var i: number = 0; i < results.length; i++) {
+						bot.sendMessage(chatterID, "ID: " + results[i].id + ", Name: " + results[i].name);
+					}
+				});
+			}
+			break;
 		default:
 			bot.sendMessage(chatterID, "I couldn't understand your request. Reply with '+help' for a list of available commands and functions.");
 	}
