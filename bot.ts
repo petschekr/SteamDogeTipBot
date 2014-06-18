@@ -306,6 +306,7 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 					});
 				});
 				break;
+			case "+joingame":
 			case "+joinmatch":
 				// Get the current competition
 				Collections.Competitions.findOne({"finished": false}, function(err: Error, competition): void {
