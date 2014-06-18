@@ -465,6 +465,63 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 					bot.sendMessage(DogeTipGroupID, teamMessage.join("\n"));
 				});
 				break;
+			case "+startmatch":
+				// Only allow certain whitelisted members to do this
+				Collections.Users.findOne({"id": chatterID}, function(err: Error, user): void {
+					if (err) {
+						bot.sendMessage(DogeTipGroupID, reportError(err, "Checking for user in +newmatch"));
+						return;
+					}
+					if (!user || !user.isGameMod) {
+						bot.sendMessage(DogeTipGroupID, "Sorry, you aren't permitted to start matches.");
+						return;
+					}
+					Collections.Competitions.findOne({"finished": false}, function(err: Error, competition): void {
+						if (err) {
+							bot.sendMessage(DogeTipGroupID, reportError(err, "Getting current competition in +startmatch"));
+							return;
+						}
+						if (!competition) {
+							bot.sendMessage(DogeTipGroupID, "Sorry, there isn't an ongoing competition");
+							return;
+						}
+						if (competition.started) {
+							bot.sendMessage(DogeTipGroupID, "The current competition has already been started!");
+							return;
+						}
+						Collections.Competitions.update({"finished": false}, {$set: {
+							"started": true,
+							"times.start.timestamp": Date.now(),
+							"times.start.string": new Date().toString()
+						}}, {w:1}, function(err: Error): void {
+							if (err) {
+								bot.sendMessage(DogeTipGroupID, reportError(err, "Updating competition in +startmatch"));
+								return;
+							}
+							var teamMessage: string[] = [
+								"The competition for the game \"" + competition.game + "\" has begun! Teams:",
+								"Alpha | Bravo",
+								"=========="
+							];
+							var largestTeam: number = (competition.teams.alpha.length >= competition.teams.bravo.length) ? competition.teams.alpha.length : competition.teams.bravo.length;
+							for (var i: number = 0; i < largestTeam; i++) {
+								var alphaMember = competition.teams.alpha[i];
+								var bravoMember = competition.teams.bravo[i];
+								if (alphaMember === undefined)
+									alphaMember = "N/A";
+								else
+									alphaMember = alphaMember.name;
+								if (bravoMember === undefined)
+									bravoMember = "N/A";
+								else
+									bravoMember = bravoMember.name;
+								teamMessage.push(alphaMember + " | " + bravoMember);
+							}
+							bot.sendMessage(DogeTipGroupID, teamMessage.join("\n"));
+						});
+					});
+				});
+				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
     	}
