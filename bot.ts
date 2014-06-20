@@ -41,6 +41,10 @@ var donationAddress: string = "D7uWLJKtS5pypUDiHjRj8LUgn9oPHrzv7b";
 var purgeTime: number = 6; // Hours until tips to nonregistered users are refunded
 var version = "v2.0.2";
 
+// Steam trading stuff
+var SteamTrade = require("steam-trade");
+var steamTrade = new SteamTrade();
+
 MongoClient.connect("mongodb://localhost:27017/dogebot", function(err: any, db: mongodb.Db) {
 if (err)
 	throw err
@@ -51,13 +55,15 @@ var Collections: {
 	Blacklist: mongodb.Collection;
 	Errors: mongodb.Collection;
 	OldUsers: mongodb.Collection;
+	Auctions: mongodb.Collection;
 } = {
 	Users: db.collection("users"),
 	Tips: db.collection("tips"),
 	Donations: db.collection("donations"),
 	Blacklist: db.collection("blacklist"),
 	Errors: db.collection("errors"),
-	OldUsers: db.collection("oldusers")
+	OldUsers: db.collection("oldusers"),
+	Auctions: db.collection("auctions")
 };
 
 var bot = new Steam.SteamClient();
@@ -72,6 +78,31 @@ bot.on("loggedOn", function(): void {
 
 	unClaimedTipCheck();
 	setInterval(unClaimedTipCheck, 1000 * 60 * 60); // Check every hour
+});
+bot.on("tradeResult", function(tradeID, tradeResponse, steamID): void {
+	/*console.log(tradeID);
+	console.log(tradeResponse);
+	console.log(steamID);*/
+});
+bot.on("sessionStart", function(steamID) {
+	bot.webLogOn(function(steamCookies: string[]): void {
+		steamTrade.sessionID = (/sessionid=(.*)/).exec(steamCookies[0])[1];
+		steamTrade.setCookie(steamCookies[0]);
+		steamTrade.setCookie(steamCookies[1]);
+		steamTrade.open(steamID, function(): void {
+			steamTrade.chatMsg("Hello world!");
+		});
+	});
+});
+steamTrade.on("offerChanged", function(addRemove, item): void {
+	if (addRemove)
+		steamTrade.chatMsg("You added an item");
+	else
+		steamTrade.chatMsg("You removed an item");
+	console.log(JSON.stringify(item));
+});
+steamTrade.on("end", function(status: string, getItems: Function) {
+	console.log("Trade ended with status: ", status);
 });
 
 function getNameFromID(steamID: string): string {
@@ -936,6 +967,42 @@ bot.on("friendMsg", function(chatterID: string, message: string, type: number): 
 		case "+prices":
 		case "+price":
 			priceCommand(chatterID, message, false);
+			break;
+		case "+auction":
+			Collections.Users.findOne({"id": chatterID}, function(err, user): void {
+				if (err) {
+					bot.sendMessage(chatterID, reportError(err, "Getting user in +auction"));
+					return;
+				}
+				if (!user) {
+					bot.sendMessage(chatterID, "Sorry, you have to register before you can auction an item for DOGE");
+					return;
+				}
+				var auctionAmount: number = numeral().unformat(message.split(" ")[1]);
+				if (auctionAmount < 0) {
+					bot.sendMessage(chatterID, "Invalid starting bid price (can't be negative!)");
+					return;
+				}
+				bot.sendMessage(chatterID, "Hello " + getNameFromID(chatterID) + ", you will be auctioning this item for a starting bid of " + auctionAmount + " DOGE");
+				bot.sendMessage(chatterID, "You will receive an invite to trade soon. Please trade 1 item that you wish to auction to the bot.");
+				Collections.Auctions.insert({
+					"sellerID": chatterID,
+					"buyerID": null,
+					"bids": [],
+					"creation": {
+						"timestamp": Date.now(),
+						"timestring": new Date().toString()
+					},
+					"itemData": null,
+					"ongoing": false
+				}, {w:1}, function(err) {
+					if (err) {
+						bot.sendMessage(chatterID, reportError(err, "Submitting auction to database"));
+						return;
+					}
+					bot.trade(chatterID);
+				});
+			});
 			break;
 		default:
 			bot.sendMessage(chatterID, "I couldn't understand your request. Reply with '+help' for a list of available commands and functions.");
