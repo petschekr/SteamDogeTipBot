@@ -182,8 +182,54 @@ function parseLine(line: string): void {
 	}
 	var roundWinParsed: any[] = roundWinRegEx.exec(line);
 	if (roundWinParsed) {
-		var winningTeam = roundWinParsed[1]; // "Red" or "Blue"
-		// Stuff
+		var winningTeam = roundWinParsed[1].toLowerCase(); // "red" or "blue"
+		async.parallel([
+			function(callback) {
+				dogecoin.getBalance("WagersRed", callback);
+			},
+			function(callback) {
+				dogecoin.getBalance("WagersBlu", callback);
+			}
+		], function(err, balances: number[]) {
+			var redWagerPool: number = balances[0];
+			var bluWagerPool: number = balances[1];
+			
+			var wagerStream = Collections.Wagers.find({"decided": false}).stream();
+			wagerStream.on("data", function(wager): void {
+				var won: boolean = (wager.player.team === winningTeam);
+				var teamWagerPool = (wager.player.team === "red") ? redWagerPool : bluWagerPool;
+				if (won) {
+					// Won their bet
+					var winnings: number = (wager.amount / teamWagerPool) * (redWagerPool + bluWagerPool);
+					var tipComment = {
+						"sender": "TF2 Wager",
+						"recipient": wager.player.name,
+						"refund": false,
+						"USD": winnings * prices["DOGE/USD"]
+					};
+					dogecoin.move("WagersRed", wager.player.id, winnings, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
+						if (err) {
+							err.player = wager.player;
+							err.amount = wager.amount;
+							console.error(err);
+							return;
+						}
+						sendMessage(wager.player.name " won " + winnings + " DOGE on their wager of " + wager.amount + " DOGE!");
+					});
+				}
+				Collections.Wagers.update({"_id": wager["_id"]}, {$set: {"won": won, "decided": true}}, {w:0}, undefined);
+			});
+			wagerStream.on("end", function(): void {
+				// Wagers are always paid out from the red wager pool account so move the remaining blu funds to make both accounts have a balance of 0
+				dogecoin.getBalance("WagersBlu", function(err, bluBalance: number): void {
+					dogecoin.move("WagersBlu", "WagersRed", bluBalance, 1, function(err, success: boolean) {
+						if (err) {
+							console.error(err);
+						}
+					});
+				});
+			});
+		});
 	}
 	if (mapLoaded.exec(line)) {
 		wagersCanBePlaced = true;
