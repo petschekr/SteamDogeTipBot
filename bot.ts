@@ -151,7 +151,7 @@ function stringifyAndEscape(object: any): string {
 function botWebLogOn(cb?: (steamCookies: string[]) => void) {
 	cb = cb || function(): void {};
 	bot.webLogOn(function(steamCookies: string[]): void {
-		fs.writeFile("cookies.json", JSON.stringify(steamCookies)), function(): void {
+		fs.writeFile("cookies.json", JSON.stringify(steamCookies), function(): void {
 			cb(steamCookies);
 		});
 	});
