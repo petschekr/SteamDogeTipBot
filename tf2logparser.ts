@@ -12,6 +12,7 @@ var RCON = require("srcds-rcon");
 var MongoClient = require("mongodb").MongoClient;
 var dogecoin = require("node-dogecoin")()
 var requester = require("request");
+var async = require("async");
 
 var credentials = JSON.parse(fs.readFileSync("auth.json", {"encoding": "utf8"}));
 // Connect to TF2 server via RCON
@@ -35,31 +36,72 @@ var Collections: {
 };
 var DogeTipGroupID: string = "103582791435182182";
 
+function getHTTPPage(url: string, callback: (err: Error, content: string) => void): void {
+	requester(url, function (err, response, body) {
+		if (err) {
+			err.URL = url;
+			callback(err, null);
+			return;
+		}
+		callback(null, body);
+	});
+}
+var prices = {
+	"BTC/USD": null,
+	"DOGE/BTC": null,
+	"DOGE/USD": null,
+	"LastUpdated": null
+};
+function getPrices(): void {
+	async.parallel([
+		function(callback) {
+			// Coinbase BTC/USD price
+			getHTTPPage("https://coinbase.com/api/v1/currencies/exchange_rates", callback);
+		},
+		function(callback) {
+			// Mintpal DOGE/BTC price
+			getHTTPPage("https://api.mintpal.com/v1/market/stats/DOGE/BTC", callback);
+		}
+	], function(err: Error, results: any[]): void {
+		if (err) {
+			console.error(err);
+			return;
+		}
+		try {
+			prices["BTC/USD"] = parseFloat(JSON.parse(results[0])["btc_to_usd"]);
+			prices["DOGE/BTC"] = parseFloat(JSON.parse(results[1])[0].last_price);
+		}
+		catch(e) {
+			return;
+		}
+		prices["DOGE/USD"] = prices["BTC/USD"] * prices["DOGE/BTC"];
+		// Return to strings with .toFixed(8)
+		prices.LastUpdated = Date.now();
+	});
+}
+getPrices();
+// Both API's are updated every minute so update every 5 minutes
+setInterval(getPrices, 1000 * 60 * 5);
+
+function stringifyAndEscape(object: any): string {
+	return JSON.stringify(object).replace(/[\u0080-\uFFFF]/g, function(m) {
+		return "\\u" + ("0000" + m.charCodeAt(0).toString(16)).slice(-4);
+	});
+}
 function inviteToGroup(invitee: string): void {
-	// Need's the bot's web cookies
-	/*bot.webLogOn(function(steamCookies: string[]): void {
+	fs.readFile("cookies.json", {encoding: "utf8"}, function(err, data: string) {
+		var steamCookies: string[] = JSON.parse(data);
 		var j = requester.jar();
 		j.setCookie(requester.cookie(steamCookies[0]), "http://steamcommunity.com");
 		j.setCookie(requester.cookie(steamCookies[1]), "http://steamcommunity.com");
 		requester.post({url: "http://steamcommunity.com/actions/GroupInvite", jar: j, form: {
 			"type": "groupInvite",
-			"inviter": bot.steamID,
+			"inviter": "76561198126817377", // Bot's SteamID
 			"invitee": invitee,
 			"group": DogeTipGroupID, // Dogecoin group
 			"sessionID": (/sessionid=(.*)/).exec(steamCookies[0])[1]
-		}}, function (err, httpResponse, body) {
-			Collections.Errors.insert({
-				"timestamp": Date.now(),
-				"time": new Date().toString(),
-				"type": "Invite Response",
-				"info": {
-					err: err,
-					httpResponse: httpResponse,
-					body: body
-				}
-			}, {w:0}, undefined);
-		});
-	});*/
+		}});
+	});
 }
 function connectToRCON() {
 	rcon = new RCON({"address": credentials.tf2.ip + ":" + credentials.tf2.port, "password": credentials.tf2.rcon});
@@ -140,7 +182,7 @@ function parseLine(line: string): void {
 		switch (message.split(" ")[0]) {
 			case "+joingroup":
 				// Invite them to the Doge Tip group
-				sendMessage("The Doge Tip group can be found at http://steamcommunity.com/groups/DogeTip");
+				sendMessage(name + ", you have been sent a group invite to the Doge Tip group. Join its group chat to tip other shibes!");
 				break;
 			case "+bet":
 			case "+wager":
@@ -153,27 +195,66 @@ function parseLine(line: string): void {
 					sendMessage("Sorry " + name + ", you can't wager less than 1 DOGE");
 					return;
 				}
-				Collections.Wagers.insert({
-					"player": {
-						"id": steamID,
-						"name": name,
-						"team": team // Will be lowecase
-					},
-					"amount": amount,
-					"decided": false,
-					"won": null,
-					"time": {
-						"timestamp": Date.now(),
-						"string": new Date().toString()
-					}
-				}, {w:1}, function(err: Error) {
+				Collections.Wagers.findOne({"decided": false, "player.id": steamID}, function(err, previousWager): void {
 					if (err) {
 						console.error(err);
-						sendMessage("Sorry, an error occurred");
 						return;
 					}
-					var printTeam: string = (team === "red") ? "Red" : "Blu";
-					sendMessage(name + " has wagered " + amount + " DOGE on a win for the " + printTeam + " team!");
+					if (previousWager) {
+						sendMessage("Sorry " + name + ", you've already wagered " + previousWager.amount + " DOGE on this match. Please wait until the next round to wager again.");
+						return;
+					}
+					// Check if they have enough DOGE in their account
+					dogecoin.getBalance(steamID, function(err, balance: number) {
+						if (err) {
+							console.error(err);
+							return;
+						}
+						if (balance < amount) {
+							sendMessage("Sorry " + name + ", you don't have enough DOGE to make that wager");
+							return;
+						}
+						// Take their wager
+						var tipComment = {
+							"sender": name,
+							"recipient": "TF2 Wager",
+							"refund": false,
+							"USD": amount * prices["DOGE/USD"]
+						};
+						var teamWagerPool: string = (team === "red") ? "WagersRed" : "WagersBlu";
+						dogecoin.move(steamID, teamWagerPool, amount, 1, stringifyAndEscape(tipComment), function(err: any, success: boolean) {
+							if (err) {
+								err.name = name;
+								err.team = team;
+								err.steamID = steamID;
+								err.amount = amount;
+								console.error(err);
+								return;
+							}
+							Collections.Wagers.insert({
+								"player": {
+									"id": steamID,
+									"name": name,
+									"team": team // Will be lowecase
+								},
+								"amount": amount,
+								"decided": false,
+								"won": null,
+								"time": {
+									"timestamp": Date.now(),
+									"string": new Date().toString()
+								}
+							}, {w:1}, function(err: Error) {
+								if (err) {
+									console.error(err);
+									sendMessage("Sorry, an error occurred");
+									return;
+								}
+								var printTeam: string = (team === "red") ? "Red" : "Blu";
+								sendMessage(name + " has wagered " + amount + " DOGE on a win for the " + printTeam + " team!");
+							});
+						});
+					});
 				});
 				break;
 			default:
@@ -214,7 +295,7 @@ function parseLine(line: string): void {
 							console.error(err);
 							return;
 						}
-						sendMessage(wager.player.name " won " + winnings + " DOGE on their wager of " + wager.amount + " DOGE!");
+						sendMessage(wager.player.name + " won " + winnings + " DOGE on their wager of " + wager.amount + " DOGE!");
 					});
 				}
 				Collections.Wagers.update({"_id": wager["_id"]}, {$set: {"won": won, "decided": true}}, {w:0}, undefined);

@@ -147,6 +147,16 @@ function stringifyAndEscape(object: any): string {
 		return "\\u" + ("0000" + m.charCodeAt(0).toString(16)).slice(-4);
 	});
 }
+// Save the cookies to a file to allow the TF2 bot to access them
+function botWebLogOn(cb?: (steamCookies: string[]) => void) {
+	cb = cb || function(): void {};
+	bot.webLogOn(function(steamCookies: string[]): void {
+		fs.writeFile("cookies.json", JSON.stringify(steamCookies)), function(): void {
+			cb(steamCookies);
+		});
+	});
+}
+botWebLogOn();
 
 function meCommand(chatterID: string, message: string, group: boolean = true) {
 	var toSend: string = (group) ? DogeTipGroupID : chatterID;
@@ -200,7 +210,7 @@ function priceCommand(chatterID: string, message: string, group: boolean = true)
 	bot.sendMessage(toSend, priceMessage.join("\n"));
 }
 function inviteToGroup(invitee) {
-	bot.webLogOn(function(steamCookies: string[]): void {
+	botWebLogOn(function(steamCookies: string[]): void {
 		var j = requester.jar();
 		j.setCookie(requester.cookie(steamCookies[0]), "http://steamcommunity.com");
 		j.setCookie(requester.cookie(steamCookies[1]), "http://steamcommunity.com");
