@@ -152,6 +152,9 @@ function parseLine(line: string): void {
 			});
 		}
 		else {
+			// Don't move them for becoming a spectator (might've happened because of the AFK plugin)
+			if (team === "spectator")
+				return;
 			// They're moving from another team
 			// If they've made a wager, move them back
 			// sm_ts <name> [index] - Swap a player's team or move a player to team [index]. (1=spec, 2=red, 3=blue)
@@ -161,7 +164,7 @@ function parseLine(line: string): void {
 					// No need to notify
 					return;
 				}
-				if (previousWager) {
+				if (previousWager && previousWager.player.team !== team) {
 					// Move back to previous team
 					sendMessage(name + " tried to switch to the other team after placing a wager!");
 					var switchToIndex: number = (previousWager.player.team === "red") ? 2 : 3;
