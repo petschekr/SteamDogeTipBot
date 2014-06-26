@@ -248,6 +248,11 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 			case "+price":
 				priceCommand(chatterID, message);
 				break;
+			case "+joinmatch":
+			case "+joingame":
+			case "+joinserver":
+				bot.sendMessage(DogeTipGroupID, "Our TF2 server is at steam://connect/80.240.134.134:27015/ Click to join and place wagers on matches!");
+				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
     	}
