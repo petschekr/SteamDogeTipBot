@@ -186,6 +186,14 @@ function parseLine(line: string): void {
 			case "+joingroup":
 				// Invite them to the Doge Tip group
 				sendMessage(name + ", you have been sent a group invite to the Doge Tip group. Join its group chat to tip other shibes!");
+				inviteToGroup(steamID);
+				break;
+			case "+register":
+				sendMessage("You've been sent a group invite to the Doge Tip group. Follow the instructions there to register (it should only take a few seconds).");
+				inviteToGroup(steamID);
+				break;
+			case "+tip":
+				sendMessage("Tipping functionality in the server chat is coming soon!");
 				break;
 			case "+bet":
 			case "+wager":
