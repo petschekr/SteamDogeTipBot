@@ -252,8 +252,8 @@ function parseLine(line: string): void {
 								"decided": false,
 								"won": null,
 								"time": {
-									"timestamp": Date.now(),
-									"string": new Date().toString()
+									"timestamp": time.valueOf(),
+									"string": time.toString()
 								}
 							}, {w:1}, function(err: Error) {
 								if (err) {
