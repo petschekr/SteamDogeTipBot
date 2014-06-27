@@ -105,6 +105,9 @@ function inviteToGroup(invitee: string): void {
 }
 function connectToRCON() {
 	rcon = new RCON({"address": credentials.tf2.ip + ":" + credentials.tf2.port, "password": credentials.tf2.rcon});
+	rcon.on("error", function(err): void {
+		console.error("RCON error: ", err);
+	});
 	rcon.connect();
 }
 connectToRCON();
