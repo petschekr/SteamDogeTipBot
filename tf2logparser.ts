@@ -117,6 +117,10 @@ function sendBigMessage(message: string): void {
 function sendMessage(message: string): void {
 	rcon.runCommand("say " + message);
 }
+function sendPrivateMessage(id: string, message: string): void {
+	id = getServerSteamID(id, true);
+	rcon.runCommand("sm_psay #" + id + " \"" + message + "\"");
+}
 
 var teams: {
 	red: any[];
@@ -188,11 +192,11 @@ function parseLine(line: string): void {
 		switch (message.split(" ")[0]) {
 			case "+joingroup":
 				// Invite them to the Doge Tip group
-				sendMessage(name + ", you have been sent a group invite to the Doge Tip group. Join its group chat to tip other shibes!");
+				sendPrivateMessage(steamID, "You have been sent a group invite to the Doge Tip group. Join its group chat to tip other shibes!");
 				inviteToGroup(steamID);
 				break;
 			case "+register":
-				sendMessage("You've been sent a group invite to the Doge Tip group. Follow the instructions there to register (it should only take a few seconds).");
+				sendPrivateMessage(steamID, "You've been sent a group invite to the Doge Tip group. Follow the instructions there to register (it should only take a few seconds).");
 				inviteToGroup(steamID);
 				break;
 			case "+tip":
@@ -309,12 +313,13 @@ function parseLine(line: string): void {
 							console.trace(err);
 							return;
 						}
-						sendMessage(wager.player.name + " won " + winnings + " DOGE on their wager of " + wager.amount + " DOGE!");
+						sendPrivateMessage(wager.player.id, "You've won " + winnings + " DOGE on your wager of " + wager.amount + " DOGE!");
 					});
 				}
 				Collections.Wagers.update({"_id": wager["_id"]}, {$set: {"won": won, "decided": true}}, {w:0}, undefined);
 			});
 			wagerStream.on("end", function(): void {
+				sendMessage("Wager winnings have been paid out to the " + roundWinParsed[1] + " team!");
 				// Wagers are always paid out from the red wager pool account so move the remaining blu funds to make both accounts have a balance of 0
 				dogecoin.getBalance("WagersBlu", function(err, bluBalance: number): void {
 					dogecoin.move("WagersBlu", "WagersRed", bluBalance, function(err, success: boolean) {
@@ -351,6 +356,22 @@ function getSteamID(TF2ID: string) {
 		return authId.multiply(new BigIntLib.BigInteger('2')).add(ID_ADDEND).add(server).toString();
 	}
 	return null;
+}
+function getServerSteamID(friendID: string, chatSafe: boolean = false) {
+	var ID_ADDEND = new BigIntLib.BigInteger("76561197960265728");
+	var matches = friendID.match(/^\d+$/)
+	if (matches && matches.length > 0) {
+		var id = new BigIntLib.BigInteger(friendID);
+		var server = id.remainder(new BigIntLib.BigInteger('2')), authId = id.subtract(ID_ADDEND).subtract(server).divide(new BigIntLib.BigInteger('2'));
+		if (!chatSafe) {
+			// Formal IDs
+			return "STEAM_0:" + server.toString() + ":" + authId;
+		}
+		else {
+			// IDs that can be used to target users in RCON
+			return "STEAM_0_" + server.toString() + "_" + authId;
+		}
+	}
 }
 
 // Line by line parsing transform stream
