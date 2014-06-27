@@ -3,7 +3,16 @@
 *               Node.js v0.8.8 API              *
 *                                               *
 ************************************************/
-
+interface Console {
+    log(...data: any[]): void;
+    info(...data: any[]): void;
+    error(...data: any[]): void;
+    warn(...data: any[]): void;
+    dir(obj: any): void;
+    timeEnd(label: string): void;
+    trace(label: any): void;
+    assert(expression: any, ...message: string[]): void;
+}
 /************************************************
 *                                               *
 *                   GLOBAL                      *
