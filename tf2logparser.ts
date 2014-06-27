@@ -317,7 +317,7 @@ function parseLine(line: string): void {
 			wagerStream.on("end", function(): void {
 				// Wagers are always paid out from the red wager pool account so move the remaining blu funds to make both accounts have a balance of 0
 				dogecoin.getBalance("WagersBlu", function(err, bluBalance: number): void {
-					dogecoin.move("WagersBlu", "WagersRed", bluBalance, 1, function(err, success: boolean) {
+					dogecoin.move("WagersBlu", "WagersRed", bluBalance, function(err, success: boolean) {
 						if (err) {
 							console.trace(err);
 						}
