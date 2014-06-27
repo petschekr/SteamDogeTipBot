@@ -322,6 +322,8 @@ function parseLine(line: string): void {
 				sendMessage("Wager winnings have been paid out to the " + roundWinParsed[1] + " team!");
 				// Wagers are always paid out from the red wager pool account so move the remaining blu funds to make both accounts have a balance of 0
 				dogecoin.getBalance("WagersBlu", function(err, bluBalance: number): void {
+					if (bluBalance <= 0)
+						return;
 					dogecoin.move("WagersBlu", "WagersRed", bluBalance, function(err, success: boolean) {
 						if (err) {
 							console.trace(err);
