@@ -64,7 +64,7 @@ function getPrices(): void {
 		}
 	], function(err: Error, results: any[]): void {
 		if (err) {
-			console.error(err);
+			console.trace(err);
 			return;
 		}
 		try {
@@ -160,7 +160,7 @@ function parseLine(line: string): void {
 			// sm_ts <name> [index] - Swap a player's team or move a player to team [index]. (1=spec, 2=red, 3=blue)
 			Collections.Wagers.findOne({"decided": false, "player.id": steamID}, function(err, previousWager) {
 				if (err) {
-					console.error(err);
+					console.trace(err);
 					// No need to notify
 					return;
 				}
@@ -208,7 +208,7 @@ function parseLine(line: string): void {
 				}
 				Collections.Wagers.findOne({"decided": false, "player.id": steamID}, function(err, previousWager): void {
 					if (err) {
-						console.error(err);
+						console.trace(err);
 						return;
 					}
 					if (previousWager) {
@@ -218,7 +218,7 @@ function parseLine(line: string): void {
 					// Check if they have enough DOGE in their account
 					dogecoin.getBalance(steamID, function(err, balance: number) {
 						if (err) {
-							console.error(err);
+							console.trace(err);
 							return;
 						}
 						if (balance < amount) {
@@ -239,7 +239,7 @@ function parseLine(line: string): void {
 								err.team = team;
 								err.steamID = steamID;
 								err.amount = amount;
-								console.error(err);
+								console.trace(err);
 								return;
 							}
 							Collections.Wagers.insert({
@@ -257,7 +257,7 @@ function parseLine(line: string): void {
 								}
 							}, {w:1}, function(err: Error) {
 								if (err) {
-									console.error(err);
+									console.trace(err);
 									sendMessage("Sorry, an error occurred");
 									return;
 								}
@@ -303,7 +303,7 @@ function parseLine(line: string): void {
 						if (err) {
 							err.player = wager.player;
 							err.amount = wager.amount;
-							console.error(err);
+							console.trace(err);
 							return;
 						}
 						sendMessage(wager.player.name + " won " + winnings + " DOGE on their wager of " + wager.amount + " DOGE!");
@@ -316,7 +316,7 @@ function parseLine(line: string): void {
 				dogecoin.getBalance("WagersBlu", function(err, bluBalance: number): void {
 					dogecoin.move("WagersBlu", "WagersRed", bluBalance, 1, function(err, success: boolean) {
 						if (err) {
-							console.error(err);
+							console.trace(err);
 						}
 					});
 				});
