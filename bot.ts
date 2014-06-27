@@ -156,7 +156,10 @@ function botWebLogOn(cb?: (steamCookies: string[]) => void) {
 		});
 	});
 }
-botWebLogOn();
+bot.on("webSessionID", function(): void {
+	botWebLogOn();
+	console.info("Web cookies saved");
+});
 
 function meCommand(chatterID: string, message: string, group: boolean = true) {
 	var toSend: string = (group) ? DogeTipGroupID : chatterID;
