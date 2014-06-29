@@ -147,6 +147,19 @@ function stringifyAndEscape(object: any): string {
 		return "\\u" + ("0000" + m.charCodeAt(0).toString(16)).slice(-4);
 	});
 }
+// Save the cookies to a file to allow the TF2 bot to access them
+function botWebLogOn(cb?: (steamCookies: string[]) => void) {
+	cb = cb || function(): void {};
+	bot.webLogOn(function(steamCookies: string[]): void {
+		fs.writeFile("cookies.json", JSON.stringify(steamCookies), function(): void {
+			cb(steamCookies);
+		});
+	});
+}
+bot.on("webSessionID", function(): void {
+	botWebLogOn();
+	console.info("Web cookies saved");
+});
 
 function meCommand(chatterID: string, message: string, group: boolean = true) {
 	var toSend: string = (group) ? DogeTipGroupID : chatterID;
@@ -200,7 +213,7 @@ function priceCommand(chatterID: string, message: string, group: boolean = true)
 	bot.sendMessage(toSend, priceMessage.join("\n"));
 }
 function inviteToGroup(invitee) {
-	bot.webLogOn(function(steamCookies: string[]): void {
+	botWebLogOn(function(steamCookies: string[]): void {
 		var j = requester.jar();
 		j.setCookie(requester.cookie(steamCookies[0]), "http://steamcommunity.com");
 		j.setCookie(requester.cookie(steamCookies[1]), "http://steamcommunity.com");
@@ -237,6 +250,11 @@ bot.on("chatMsg", function(sourceID: string, message: string, type: number, chat
 			case "+prices":
 			case "+price":
 				priceCommand(chatterID, message);
+				break;
+			case "+joinmatch":
+			case "+joingame":
+			case "+joinserver":
+				bot.sendMessage(DogeTipGroupID, "Our TF2 server is at steam://connect/80.240.134.134:27015/ Click to join and place wagers on matches!");
 				break;
 			default:
 				bot.sendMessage(DogeTipGroupID, "I won't respond to commands in the group chat. Open up a private message by double clicking on my name in the sidebar to send me commands.");
